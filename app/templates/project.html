@@ -7,25 +7,28 @@
     <!-- Default panel contents -->
     <div class="panel-heading">{{model_id}}</div>
     <div class="panel-body">
-      <div class="row text-center">
-	<div class="col-lg-5">
-	  <h5>Architecture</h5>
-	  {{architecture|safe}}
-	</div>
-	<div class="col-lg-7">
-	  <div class="row">
-	    <div id="chart" style="margin-top: 35px;"></div>
+      <div class="container-fluid">
+	<div class="row text-center">
+	  <div class="col-lg-5">
+	    <h5>Architecture</h5>
+	    {{architecture|safe}}
 	  </div>
-	  <div class="row" style="margin-top: 35px;">
-	  <h5>Experiment params</h5>
-	    {{experiment.params|safe}}
+	  <div class="col-lg-7">
+	    <div class="container-fluid">
+	      <div class="row">
+		<div id="chart" style="margin-top: 35px;"></div>
+	      </div>
+	      <div class="row" style="margin-top: 35px;">
+		<h5>Experiment params</h5>
+		{{experiment.params|safe}}
+	      </div>
+	    </div>
 	  </div>
 	</div>
       </div>
     </div>
   </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
