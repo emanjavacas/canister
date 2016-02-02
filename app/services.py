@@ -8,9 +8,6 @@ from canister.storage import Model
 from blitzdb import FileBackend
 from json2html import json2html
 
-backend = FileBackend(CONFIG["db"]["db-path"])
-
-
 def transform(d, fn=lambda x: "null" if not x else x):
     "applies a transform function over the elements of nested iterables"
     for k, v in d.iteritems():
@@ -84,12 +81,15 @@ def _summarize_project(p):
 
 
 def get_project(model_id, exp_id):
+    backend = FileBackend(CONFIG["db"]["db-path"])
     project = backend.get(Model, {'model_id': model_id})
     return _handle_project(project, exp_id)
 
 
 def get_projects():
-    projects = backend.filter(Model, {})
+    backend = FileBackend(CONFIG["db"]["db-path"])
+    projects = list(backend.filter(Model, {}))
+    print projects
     return {"projects": [_summarize_project(p) for p in projects],
             "n_projects": len(projects),
             "n_experiments": sum(len(p['experiments']) for p in projects)}

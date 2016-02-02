@@ -33,9 +33,9 @@ def create_data(item_length, n_items):
 if __name__ == '__main__':
 
     params = {                  # experiment_params
-        "item_length": 5,
+        "item_length": 4,
         "n_items": 10,
-        "batch_size": 5,
+        "batch_size": 7,
         "nb_epoch": 10,
         "validation_split": 0.1
     }
@@ -45,7 +45,7 @@ if __name__ == '__main__':
         "hidden_neurons": 10
     }
 
-    db_callback = DBCallback("test_run", params=params)
+    db_callback = DBCallback("my Project", params=params)
 
     print("Loading data.")
     data = create_data(params["item_length"], params["n_items"])
@@ -74,6 +74,6 @@ if __name__ == '__main__':
 
 
 # from blitzdb import FileBackend
-# from callback import Model
+# from storage import Model
 # keras_be = FileBackend("db-data")
 # model = list(keras_be.filter(Model, {}))

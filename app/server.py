@@ -22,10 +22,10 @@ def landing(services=services):
     return render_template('landing.html', **services.get_projects())
 
 
-@app.route('/<regex("[a-zA-Z0-9_]+"):id>:<regex("[0-9]+"):idx>', methods=['GET'])
-def experiment(id, idx, services=services):
+@app.route('/<regex("[a-zA-Z0-9_ ]+"):model_id>:<regex("[0-9]+"):idx>', methods=['GET'])
+def experiment(model_id, idx, services=services):
     idx = int(idx)
-    return render_template('project.html', **services.get_project(id, idx))
+    return render_template('project.html', **services.get_project(model_id, idx))
 
 
 if __name__ == "__main__":

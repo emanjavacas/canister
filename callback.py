@@ -1,3 +1,6 @@
+
+from __future__ import print_function
+
 from keras.callbacks import Callback
 from blitzdb import FileBackend
 
@@ -46,6 +49,7 @@ class DBCallback(Callback):
         try:
             self.doc = self.backend.get(Model, {"model_id": model_id})
         except Model.DoesNotExist:
+            print("Inserting new model with id: " + model_id)
             self.doc = Model({"model_id": model_id, "experiments": []})
         self.doc["experiments"].append(self.experiment)
         self.doc.save(self.backend)
