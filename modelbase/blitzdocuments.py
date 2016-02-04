@@ -17,7 +17,7 @@ class Architecture(Document):
     pass
 
 
-class Model(Document):
+class FittedModel(Document):
 
     pass
 

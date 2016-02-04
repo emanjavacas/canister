@@ -1,10 +1,10 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
 
 from keras.callbacks import Callback
-from blitzdb import FileBackend
-
-from storage import Model, Experiment
+from canister.modelbase import ModelBase
 
 
 class DBCallback(Callback):
