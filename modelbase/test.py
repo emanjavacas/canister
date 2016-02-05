@@ -37,4 +37,8 @@ if __name__ == '__main__':
     params = clf.get_params()
     arch = svm.LinearSVC.__name__
 
-    mb.addresult(arch, "randomdata", params, "random_clusters", 0)
+    mb.addresult(arch, 
+                 "randomdata", 
+                 params, 
+                 0, 
+                 {"y_pred": y_pred.tolist(), "y_test": y_test.tolist()})

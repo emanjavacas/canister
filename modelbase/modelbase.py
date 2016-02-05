@@ -70,8 +70,8 @@ class ModelBase(object):
         epoch = Epoch(epoch_dict)
 
         model["epochs"].append(epoch)
-        if model not in arch.models:
-            arch["models"].append(model)
+        if model not in arch["fitted_models"]:
+            arch["fitted_models"].append(model)
 
         arch.save(self.db)
 
@@ -103,7 +103,7 @@ class ModelBase(object):
             arch = Architecture({"architecture_name": architecture_name,
                                  "corpus": corpus,
                                  "features": features,
-                                 "models": [],
+                                 "fitted_models": [],
                                  "preferred_params": {}})
 
         arch["preferred_params"] = PreferredParams(preferred_params)
