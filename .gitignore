@@ -3,3 +3,4 @@ db-data/
 *pyc
 robofly
 #*
+*.idea/

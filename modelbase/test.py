@@ -1,5 +1,7 @@
 
 import numpy as np
+
+from modelbase import ModelBase
 from scipy import random
 from sklearn import svm
 from sklearn.cross_validation import train_test_split
@@ -20,10 +22,19 @@ def generate_clusters(n_points=100, n_clusters=5, n_dim=3, noise=0.15):
 
 
 if __name__ == '__main__':
+
+    mb = ModelBase("test.db")
+
     X, y = generate_clusters(noise=0.5, n_clusters=4)
     X_train, X_test, y_train, y_test = \
         train_test_split(X, y, test_size=0.33, random_state=42)
     clf = svm.LinearSVC()
+
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
     print(accuracy_score(y_test, y_pred))
+
+    params = clf.get_params()
+    arch = svm.LinearSVC.__name__
+
+    mb.addresult(arch, "randomdata", params, "random_clusters", 0)
