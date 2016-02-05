@@ -3,7 +3,6 @@
 
 from blitzdb import Document
 
-
 """
 IDEA: architectures have multiple models.
 models are different based on params and corpus.
@@ -13,20 +12,16 @@ corpus on a certain epoch given params and a corpus.
 
 
 class Architecture(Document):
-
     pass
 
 
 class FittedModel(Document):
-
     pass
 
 
 class Epoch(Document):
-
     pass
 
 
 class PreferredParams(Document):
-
     pass

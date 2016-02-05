@@ -1,3 +1,5 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 from keras.models import Sequential
 from keras.layers.core import Activation, Dropout, Dense
@@ -67,11 +69,6 @@ if __name__ == '__main__':
               nb_epoch=params["nb_epoch"],
               validation_split=params["validation_split"],
               callbacks=[db_callback])
-
-    # predicted = model.predict(X_test)
-    # print np.sqrt(((predicted - y_test) ** 2).mean(axis=0)).mean()
-    # print predicted
-
 
 # from blitzdb import FileBackend
 # from storage import Model

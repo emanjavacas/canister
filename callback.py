@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 from keras.callbacks import Callback
-from canister.modelbase import ModelBase
+from modelbase import ModelBase
 
 
 class DBCallback(Callback):
@@ -14,8 +14,6 @@ class DBCallback(Callback):
     based on the same architecture are stored together.
     Parameters
     ----------
-    model_id: str
-        Unique identifier of the model architecture.
 
     params: dict
         A dictionary of parameters used in the current experiment.
@@ -40,19 +38,11 @@ class DBCallback(Callback):
 
         """
 
-    def __init__(self, model_id, params, db_path='db-data', freq=1):
-        "creates a new Model in the database if it doesn't exist yet"
-        self.backend = FileBackend(db_path, config={"autocommit": True})
-        self.experiment = Experiment({"status": "running",
-                                      "params": params,
-                                      "epochs": {}})
-        try:
-            self.doc = self.backend.get(Model, {"model_id": model_id})
-        except Model.DoesNotExist:
-            print("Inserting new model with id: " + model_id)
-            self.doc = Model({"model_id": model_id, "experiments": []})
-        self.doc["experiments"].append(self.experiment)
-        self.doc.save(self.backend)
+    def __init__(self, arch_name, corpus, path='db-data', freq=1):
+        "sets the database connection"
+        self.arch_name = arch_name
+        self.corpus = corpus
+        self.mb = ModelBase(path)
         self.freq = freq
         super(Callback, self).__init__()
 
@@ -68,6 +58,7 @@ class DBCallback(Callback):
                 epoch_data[k] = v / self.seen
             for k, v in logs.items():  # val_...
                 epoch_data[k] = v
+            self.md.addresult(architecture_name=self.arch_name, corpus=self.corpus)
             self.experiment.attributes["epochs"][epoch] = epoch_data
             self.experiment.save(self.backend)
 
@@ -84,10 +75,7 @@ class DBCallback(Callback):
                 self.totals[k] = v * batch_size
 
     def on_train_begin(self, logs={}):
-        model_architecture = self.model.get_config()
-        if not self.doc.attributes.get("architecture"):
-            self.doc.attributes["architecture"] = model_architecture
-            self.doc.save(self.backend)
+        self.params "merge" = self.model.get_config()
 
     def on_train_end(self, logs={}):
         self.experiment.attributes.update({"status": "finished"})
