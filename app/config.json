@@ -3,6 +3,6 @@
 	"server-port": 5000
     },
     "db": {
-	"db-path": "/home/enrique/code/python/canister/db-data"
+	"db-path": "/Users/quique/code/python/canister/test/test.db"
     }
 }

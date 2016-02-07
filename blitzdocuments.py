@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from blitzdb import Document
+from time import time
 
 """
 IDEA: architectures have multiple models.
@@ -16,7 +17,11 @@ class Architecture(Document):
 
 
 class FittedModel(Document):
-    pass
+    class Meta(Document.Meta):
+        primary_key = "timestamp"
+
+    def autogenerate_pk(self):
+        self.pk = str(time())
 
 
 class Epoch(Document):

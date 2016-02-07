@@ -2,11 +2,11 @@
 from datetime import datetime
 import json
 
-from utils import CONFIG
-from canister.storage import Model
+from utils import CONFIG, flatten
+from canister.modelbase import ModelBase
 
-from blitzdb import FileBackend
 from json2html import json2html
+
 
 def transform(d, fn=lambda x: "null" if not x else x):
     "applies a transform function over the elements of nested iterables"
@@ -23,7 +23,7 @@ def transform(d, fn=lambda x: "null" if not x else x):
     return d
 
 
-def transform_layers(model):
+def transform_layers(arch):
     "rearranges default keras config dictionary"
     def named_layers(layers):
         for idx, l in enumerate(layers):
@@ -31,10 +31,10 @@ def transform_layers(model):
                 name = l['name']
                 del l['name']
                 yield name, l
-    if 'layers' in model:
-        layers = model['layers']
-        model['layers'] = dict(named_layers(layers))
-    return model
+    if 'layers' in arch:
+        layers = arch['layers']
+        arch['layers'] = dict(named_layers(layers))
+    return arch
 
 
 def dict2html(d):
@@ -48,48 +48,85 @@ def dict2html(d):
     )
 
 
-def timestamp_to_str(s):
+def timestamp_to_str(timestamp):
     "parse timestamp"
-    date = datetime.utcfromtimestamp(float(s))
-    return str(date).split('.')[0]
+    if isinstance(timestamp, basestring):
+        timestamp = float(timestamp)
+    timestamp = datetime.utcfromtimestamp(timestamp)
+    return str(timestamp).split('.')[0]
 
 
-def _handle_project(p, exp_id):
-    "returns a model dict for the project template"
-    architecture = p['architecture']
-    architecture = dict2html(transform(transform_layers(architecture)))
-    p['architecture'] = architecture
-    experiment = p['experiments'][exp_id]
-    experiment['date'] = timestamp_to_str(experiment.timestamp)
-    experiment['params'] = dict2html(experiment['params'])
-    experiment['epochs'] = json.dumps(dict(experiment['epochs']))
-    p['experiment'] = experiment
-    return p
+def _handle_model(arch, fitted_model_idx):
+    "returns a model dict for the fitted_model template"
+    out = {}
+    arch_params = arch['architecture_params']
+    arch_params = dict2html(transform(transform_layers(arch_params)))
+    fitted_model = dict(arch['fitted_models'][fitted_model_idx])
+    epochs = fitted_model.pop('epochs')
+    epochs = [e.result for e in epochs]
+    timestamp = fitted_model.pop("timestamp")
+    fitted_model_out = {}
+    fitted_model_out['epochs'] = json.dumps(epochs)
+    fitted_model_out['timestamp'] = timestamp_to_str(timestamp)
+    fitted_model_out['params'] = dict2html(fitted_model)
+    out['architecture_name'] = arch['architecture_name']
+    out['architecture_params'] = arch_params
+    out['fitted_model'] = fitted_model_out
+    out['model_id'] = timestamp
+    return out
 
 
-def _summarize_project(p):
+def _summarize_arch(arch):
     "returns a model dict for the model preview template"
-    for idx, e in enumerate(p['experiments']):
-        date = timestamp_to_str(e.timestamp)
-        p['experiments'][idx]['idx'] = idx
-        p['experiments'][idx]['date'] = date
-    arch = {"Layers": [l['name'] for l in p['architecture']['layers']],
-            "Model Type": p["architecture"]["name"],
-            "Description": p.get("description", "")}
-    p["architecture"] = dict2html(arch)
-    return p
+    out = {}
+    out_models = []
+    fitted_models = enumerate(arch['fitted_models'])
+    sortby = lambda x: float(x[1]['timestamp'])
+    for idx, model in sorted(fitted_models, reverse=True, key=sortby):
+        out_model = {}
+        out_model['timestamp'] = timestamp_to_str(model["timestamp"])
+        out_model['idx'] = idx
+        out_models.append(out_model)
+    arch_summary = {"Description": arch.get("description", "No description available")}
+    if arch["architecture_params"]:
+        arch_params = arch["architecture_params"]
+        arch_summary["Model Type"] = arch_params["name"]
+        arch_summary["Layers"] = [l['name'] for l in arch_params['layers']]
+    out["corpus"] = arch["corpus"]
+    out["tags"] = arch['tags']
+    out["architecture_name"] = arch["architecture_name"]
+    out["fitted_models"] = out_models
+    out["architecture_summary"] = dict2html(arch_summary)
+    return out
 
 
-def get_project(model_id, exp_id):
-    backend = FileBackend(CONFIG["db"]["db-path"])
-    project = backend.get(Model, {'model_id': model_id})
-    return _handle_project(project, exp_id)
+def get_tags(mb=None):
+    mb = ModelBase(CONFIG["db"]["db-path"]) if not mb else mb
+    return set(flatten([a['tags'] for a in mb.getarchs()]))
 
 
-def get_projects():
-    backend = FileBackend(CONFIG["db"]["db-path"])
-    projects = list(backend.filter(Model, {}))
-    print projects
-    return {"projects": [_summarize_project(p) for p in projects],
-            "n_projects": len(projects),
-            "n_experiments": sum(len(p['experiments']) for p in projects)}
+def get_last_timestamp(mb=None):
+    mb = ModelBase(CONFIG["db"]["db-path"]) if not mb else mb
+    timestamps = list(flatten([float(m['timestamp'])
+                               for a in mb.getarchs()
+                               for m in a['fitted_models']]))
+    return timestamp_to_str(sorted(timestamps)[0])
+
+
+def get_arch(arch_name, corpus, fitted_model_idx, **kwargs):
+    mb = ModelBase(CONFIG["db"]["db-path"])
+    arch = mb.getarch(arch_name, corpus, **kwargs)
+    return _handle_model(arch, fitted_model_idx)
+
+
+def get_archs(tags=[]):
+    mb = ModelBase(CONFIG["db"]["db-path"])
+    if not tags:
+        tags = get_tags(mb=mb)
+    archs = mb.getarchs(**{"tags": {"$in": tags}})
+    if not archs:               # todo: empty result from tag set filter
+        return []
+    return {"archs": [_summarize_arch(arch) for arch in archs],
+            "n_projects": len(archs),
+            "n_experiments": sum(len(arch['fitted_models']) for arch in archs),
+            "last_timestamp": get_last_timestamp(mb=mb)}

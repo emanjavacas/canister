@@ -5,13 +5,13 @@
 <div class="container" style="padding: 15px; margin-top:75px;">
   <div class="panel panel-default">
     <!-- Default panel contents -->
-    <div class="panel-heading">{{model_id}}</div>
+    <div class="panel-heading">{{architecture_name}}</div>
     <div class="panel-body">
       <div class="container-fluid">
 	<div class="row text-center">
 	  <div class="col-lg-5">
 	    <h5>Architecture</h5>
-	    {{architecture|safe}}
+	    {{architecture_params|safe}}
 	  </div>
 	  <div class="col-lg-7">
 	    <div class="container-fluid">
@@ -20,7 +20,7 @@
 	      </div>
 	      <div class="row" style="margin-top: 35px;">
 		<h5>Experiment params</h5>
-		{{experiment.params|safe}}
+		{{fitted_model.params|safe}}
 	      </div>
 	    </div>
 	  </div>
@@ -36,6 +36,7 @@
 <script type="text/javascript" src="/static/js/c3.min.js"></script>
 <script type="text/javascript" src="/static/js/chart.js"></script>
 <script type="text/javascript">
-  var epochs = {{experiment.epochs|safe}};
+  var epochs = {{fitted_model.epochs|safe}};
+  var modelId = {{model_id}}
 </script>
 {% endblock %}

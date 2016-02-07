@@ -1,13 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import argparse
+import numpy as np
+
 from keras.models import Sequential
 from keras.layers.core import Activation, Dropout, Dense
 from keras.layers.recurrent import GRU
 
-import numpy as np
-
-from callback import DBCallback
+from canister.callback import DBCallback
 
 
 def load_data(data, steps=4):
@@ -26,40 +27,41 @@ def train_test_split(data, test_size=0.15):
     return (X_train, Y_train), (X_test, Y_test)
 
 
-def create_data(item_length, n_items):
+def create_data(item_length, iters):
     data = np.arange(item_length).reshape((item_length, 1))
-    for i in xrange(n_items):
+    for i in xrange(iters):
         data = np.append(data, data, axis=0)
     return data
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('name')
+    parser.add_argument('-p1', '--param_1', default=4, type=int)
+    parser.add_argument('-e', '--nb_epochs', default=10, type=int)
+
+    args = vars(parser.parse_args())
 
     params = {                  # experiment_params
-        "item_length": 4,
-        "n_items": 10,
-        "batch_size": 7,
-        "nb_epoch": 10,
-        "validation_split": 0.1
+        "item_length": args['param_1'],
+        "iters": 10,
+        "batch_size": 10,
+        "nb_epoch": args['nb_epochs'],
+        "validation_split": 0.2
     }
 
-    arch_params = {             # model architecture params
-        "in_out_neurons": 1,
-        "hidden_neurons": 10
-    }
-
-    db_callback = DBCallback("my Project", params=params)
+    db_callback = DBCallback(args['name'], corpus="generated", params=params)
 
     print("Loading data.")
-    data = create_data(params["item_length"], params["n_items"])
+    data = create_data(params["item_length"], params["iters"])
     (X_train, y_train), (X_test, y_test) = train_test_split(data)
 
     print("Compiling model.")
     model = Sequential()
-    model.add(GRU(arch_params["hidden_neurons"],
-                  input_dim=arch_params["in_out_neurons"],
+    model.add(GRU(10,
+                  input_dim=1,
                   return_sequences=False))
     model.add(Dropout(0.2))
-    model.add(Dense(arch_params["in_out_neurons"]))
+    model.add(Dense(1))
     model.add(Activation("linear"))
     model.compile(loss="mean_squared_error", optimizer="rmsprop")
 
@@ -69,8 +71,3 @@ if __name__ == '__main__':
               nb_epoch=params["nb_epoch"],
               validation_split=params["validation_split"],
               callbacks=[db_callback])
-
-# from blitzdb import FileBackend
-# from storage import Model
-# keras_be = FileBackend("db-data")
-# model = list(keras_be.filter(Model, {}))

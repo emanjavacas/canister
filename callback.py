@@ -3,6 +3,8 @@
 
 from __future__ import print_function
 
+import json
+
 from keras.callbacks import Callback
 from modelbase import ModelBase
 
@@ -14,37 +16,63 @@ class DBCallback(Callback):
     based on the same architecture are stored together.
     Parameters
     ----------
+    arch_name: str
+        architecture name
+
+    corpus: str
+        corpus used for the experiment
 
     params: dict
         A dictionary of parameters used in the current experiment.
 
-    db_path: str, optional, default 'db-data'
+    path: str, optional, default 'test.db'
         Path to the store dir to be used by blitzdb.FileBackend.
 
     freq: int, optional, default 1
         Number of epochs before commiting results to database.
         Can be use to skip over epochs.
 
+    live_root: str, optional, default 'http://localhost:5000'
+        URL to publish results to. Set to None if local server isn't running
+
     Attributes
     ----------
-    backend: blitzdb.FileBackend
+    mb: blitzdb.FileBackend
         File backend.
 
-    experiment: blitzdb.Document
-        Document representing the experiment as stored in the database.
+    arch_params: dict
+        the result of Keras.model.get_config() to be passed to mb.addresult()
 
-    doc: blitzdb.Document
-        Document representing the model as stored in the database.
+    model_id: str
+        unique identifier of the stored model. Used to keep passing epochs
+        to the same model (as opposed to creating a new model for each epoch)
+    """
 
-        """
-
-    def __init__(self, arch_name, corpus, path='db-data', freq=1):
+    def __init__(self, arch_name, corpus, params, path='test.db',
+                 freq=1, live_root='http://localhost:5000'):
         "sets the database connection"
         self.arch_name = arch_name
         self.corpus = corpus
-        self.mb = ModelBase(path)
+        self.params = params
         self.freq = freq
+        self.live_root = live_root
+        self.mb = ModelBase(path)
+        self.arch_params = None
+        self.model_id = None
         super(Callback, self).__init__()
+
+    def reach_server(self, data, endpoint):
+        "tries to reach server at the given `endpoint` with the given `data`"
+        if not self.live_root:
+            return
+        import requests
+        try:
+            requests.post(self.live_root + endpoint,
+                          {'data': json.dumps(data)})
+        except TypeError:
+            print("JSON error; data: " + str(data))
+        except:
+            print("Could not reach server at " + self.live_root)
 
     def on_epoch_begin(self, epoch, logs={}):
         if (epoch % self.freq) == 0:
@@ -52,15 +80,33 @@ class DBCallback(Callback):
             self.totals = {}
 
     def on_epoch_end(self, epoch, logs={}):
+        assert self.arch_params
         if (epoch % self.freq) == 0:
             epoch_data = {}
             for k, v in self.totals.items():
                 epoch_data[k] = v / self.seen
             for k, v in logs.items():  # val_...
                 epoch_data[k] = v
-            self.md.addresult(architecture_name=self.arch_name, corpus=self.corpus)
-            self.experiment.attributes["epochs"][epoch] = epoch_data
-            self.experiment.save(self.backend)
+            # send to db
+            arch_id, model_id = \
+                self.mb.addresult(arch_name=self.arch_name,
+                                  corpus=self.corpus,
+                                  params=self.params,
+                                  result={"result": epoch_data},
+                                  model_id=self.model_id,
+                                  epoch_number=epoch,
+                                  arch_params=self.arch_params,
+                                  tags=("NN",))
+            if not self.model_id:
+                self.model_id = model_id
+                self.reach_server({'action': 'start',
+                                   'modelId': model_id},
+                                  '/publish/train/')
+
+            # send to localhost
+            self.reach_server({'epochData': epoch_data,
+                               'modelId':  model_id},
+                              '/publish/epoch/end/')
 
     def on_batch_begin(self, batch, logs={}):
         pass
@@ -75,8 +121,10 @@ class DBCallback(Callback):
                 self.totals[k] = v * batch_size
 
     def on_train_begin(self, logs={}):
-        self.params "merge" = self.model.get_config()
+        self.arch_params = self.model.get_config()
+        pass
 
     def on_train_end(self, logs={}):
-        self.experiment.attributes.update({"status": "finished"})
-        self.experiment.save(self.backend)
+        self.reach_server({'modelId': self.model_id,
+                           'action': 'end'},
+                          '/publish/train/')
