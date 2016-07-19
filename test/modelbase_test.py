@@ -38,7 +38,7 @@ if __name__ == '__main__':
     params = clf.get_params()
     arch = svm.LinearSVC.__name__
 
-    mb.addresult(arch_name=arch,
+    mb.add_result(arch_id=arch,
                  corpus="randomdata",
                  params=params,
                  epoch_number=0,

@@ -16,7 +16,7 @@ class DBCallback(Callback):
     based on the same architecture are stored together.
     Parameters
     ----------
-    arch_name: str
+    arch_id: str
         architecture name
 
     corpus: str
@@ -43,19 +43,20 @@ class DBCallback(Callback):
     arch_params: dict
         the result of Keras.model.get_config() to be passed to mb.addresult()
 
-    model_id: str
+    model_id: str, int, float
         unique identifier of the stored model. Used to keep passing epochs
         to the same model (as opposed to creating a new model for each epoch)
     """
 
-    def __init__(self, arch_name, corpus, params, path='test.db',
-                 freq=1, live_root='http://localhost:5000'):
+    def __init__(self, arch_id, corpus, params, tags=("NN",),
+                 path='test.db', freq=1, live_root='http://localhost:5000'):
         "sets the database connection"
-        self.arch_name = arch_name
+        self.arch_id = arch_id
         self.corpus = corpus
         self.params = params
         self.freq = freq
         self.live_root = live_root
+        self.tags = tags
         self.mb = ModelBase(path)
         self.arch_params = None
         self.model_id = None
@@ -88,15 +89,14 @@ class DBCallback(Callback):
             for k, v in logs.items():  # val_...
                 epoch_data[k] = v
             # send to db
-            arch_id, model_id = \
-                self.mb.addresult(arch_name=self.arch_name,
-                                  corpus=self.corpus,
-                                  params=self.params,
-                                  result={"result": epoch_data},
-                                  model_id=self.model_id,
-                                  epoch_number=epoch,
-                                  arch_params=self.arch_params,
-                                  tags=("NN",))
+            model_id = self.mb.add_result(arch_id=self.arch_id,
+                                          corpus=self.corpus,
+                                          params=self.params,
+                                          result={"result": epoch_data},
+                                          model_id=self.model_id,
+                                          epoch_number=epoch,
+                                          arch_params=self.arch_params,
+                                          tags=self.tags)
             if not self.model_id:
                 self.model_id = model_id
                 self.reach_server({'action': 'start',

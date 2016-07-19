@@ -69,8 +69,8 @@ def _handle_model(arch, fitted_model_idx):
     fitted_model_out['epochs'] = json.dumps(epochs)
     fitted_model_out['timestamp'] = timestamp_to_str(timestamp)
     fitted_model_out['params'] = dict2html(fitted_model)
-    out['architecture_name'] = arch['architecture_name']
-    out['architecture_params'] = arch_params
+    out['arch_id'] = arch['arch_id']
+    out['arch_params'] = arch_params
     out['fitted_model'] = fitted_model_out
     out['model_id'] = timestamp
     return out
@@ -89,12 +89,12 @@ def _summarize_arch(arch):
         out_models.append(out_model)
     arch_summary = {"Description": arch.get("description", "No description available")}
     if arch["architecture_params"]:
-        arch_params = arch["architecture_params"]
+        arch_params = arch["arch_params"]
         arch_summary["Model Type"] = arch_params["name"]
         arch_summary["Layers"] = [l['name'] for l in arch_params['layers']]
     out["corpus"] = arch["corpus"]
     out["tags"] = arch['tags']
-    out["architecture_name"] = arch["architecture_name"]
+    out["architecture_name"] = arch["arch_id"]
     out["fitted_models"] = out_models
     out["architecture_summary"] = dict2html(arch_summary)
     return out
@@ -102,20 +102,20 @@ def _summarize_arch(arch):
 
 def get_tags(mb=None):
     mb = ModelBase(CONFIG["db"]["db-path"]) if not mb else mb
-    return set(flatten([a['tags'] for a in mb.getarchs()]))
+    return set(flatten([a['tags'] for a in mb.get_archs()]))
 
 
 def get_last_timestamp(mb=None):
     mb = ModelBase(CONFIG["db"]["db-path"]) if not mb else mb
     timestamps = list(flatten([float(m['timestamp'])
-                               for a in mb.getarchs()
+                               for a in mb.get_archs()
                                for m in a['fitted_models']]))
     return timestamp_to_str(sorted(timestamps)[0])
 
 
-def get_arch(arch_name, corpus, fitted_model_idx, **kwargs):
+def get_arch(arch_id, corpus, fitted_model_idx, **kwargs):
     mb = ModelBase(CONFIG["db"]["db-path"])
-    arch = mb.getarch(arch_name, corpus, **kwargs)
+    arch = mb.get_arch(arch_id, corpus, **kwargs)
     return _handle_model(arch, fitted_model_idx)
 
 
@@ -123,7 +123,7 @@ def get_archs(tags=[]):
     mb = ModelBase(CONFIG["db"]["db-path"])
     if not tags:
         tags = get_tags(mb=mb)
-    archs = mb.getarchs(**{"tags": {"$in": tags}})
+    archs = mb.get_archs(**{"tags": {"$in": tags}})
     if not archs:               # todo: empty result from tag set filter
         return []
     return {"archs": [_summarize_arch(arch) for arch in archs],

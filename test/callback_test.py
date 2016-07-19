@@ -38,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('name')
     parser.add_argument('-p1', '--param_1', default=4, type=int)
     parser.add_argument('-e', '--nb_epochs', default=10, type=int)
+    parser.add_argument('-t', '--tags', type=str, nargs="+", default=["NN"])
 
     args = vars(parser.parse_args())
 
@@ -49,7 +50,10 @@ if __name__ == '__main__':
         "validation_split": 0.2
     }
 
-    db_callback = DBCallback(args['name'], corpus="generated", params=params)
+    db_callback = DBCallback(args['name'],
+                             corpus="generated",
+                             tags=args["tags"],
+                             params=params)
 
     print("Loading data.")
     data = create_data(params["item_length"], params["iters"])

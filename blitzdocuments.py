@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from blitzdb import Document
-from time import time
+import uuid
+
 
 """
 IDEA: architectures have multiple models.
@@ -13,15 +14,19 @@ corpus on a certain epoch given params and a corpus.
 
 
 class Architecture(Document):
-    pass
+    class Meta(Document.Meta):
+        primary_key = "arch_id"
+
+    def autogenerate_pk(self):
+        self.pk = str(uuid.uuid1())
 
 
 class FittedModel(Document):
     class Meta(Document.Meta):
-        primary_key = "timestamp"
+        primary_key = "model_id"
 
     def autogenerate_pk(self):
-        self.pk = str(time())
+        self.pk = str(uuid.uuid1())
 
 
 class Epoch(Document):
