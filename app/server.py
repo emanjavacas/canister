@@ -12,7 +12,6 @@ from utils import CONFIG, SSE, RegexConverter
 
 import services
 
-
 app = Flask(__name__)
 app.url_map.converters['r'] = RegexConverter
 app.secret_key = CONFIG['secret_key']
@@ -52,6 +51,8 @@ arch_name_route = '/<r("[a-zA-Z0-9_ ]+"):arch_name>'
 epoch_number_route = '<r("[0-9]+"):epoch_number>'
 corpus_route = '<r(".*"):corpus>'
 arch_route = '_'.join([arch_name_route, epoch_number_route, corpus_route])
+
+
 @app.route(arch_route, methods=['GET'])
 def experiment(arch_name, epoch_number, corpus, services=services):
     arch = services.get_arch(arch_name, "generated", int(epoch_number))
@@ -63,7 +64,7 @@ def publish_epoch():
     data = request.form.get('data')
     try:
         json.loads(data)
-    except Exception, e:
+    except Exception as e:
         app.logger.error('Parsing error in /publish/epoch/end/: ' + str(e))
         return {'error': 'invalid data'}
 
@@ -95,7 +96,7 @@ def publish_train():
     data = request.form.get('data')
     try:
         json.loads(data)
-    except Exception, e:
+    except Exception:
         app.logger.error('Parsing error in /publish/train/ ' + str(data))
         return {'error': 'invalid data'}
 

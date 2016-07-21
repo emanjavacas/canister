@@ -29,7 +29,7 @@ def train_test_split(data, test_size=0.15):
 
 def create_data(item_length, iters):
     data = np.arange(item_length).reshape((item_length, 1))
-    for i in xrange(iters):
+    for i in range(iters):
         data = np.append(data, data, axis=0)
     return data
 

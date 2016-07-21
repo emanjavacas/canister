@@ -7,7 +7,7 @@ from werkzeug.routing import BaseConverter
 
 def flatten(iterable):
     for i in iterable:
-        if hasattr(i, '__iter__'):
+        if isinstance(i, list):
             for j in flatten(i):
                 yield j
         else:

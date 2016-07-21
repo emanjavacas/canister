@@ -6,7 +6,7 @@ from __future__ import print_function
 import json
 
 from keras.callbacks import Callback
-from modelbase import ModelBase
+from canister.modelbase import ModelBase
 
 
 class DBCallback(Callback):
@@ -16,7 +16,7 @@ class DBCallback(Callback):
     based on the same architecture are stored together.
     Parameters
     ----------
-    arch_id: str
+    arch_name: str
         architecture name
 
     corpus: str
@@ -48,10 +48,10 @@ class DBCallback(Callback):
         to the same model (as opposed to creating a new model for each epoch)
     """
 
-    def __init__(self, arch_id, corpus, params, tags=("NN",),
+    def __init__(self, arch_name, corpus, params, tags=("NN",),
                  path='test.db', freq=1, live_root='http://localhost:5000'):
         "sets the database connection"
-        self.arch_id = arch_id
+        self.arch_name = arch_name
         self.corpus = corpus
         self.params = params
         self.freq = freq
@@ -89,7 +89,7 @@ class DBCallback(Callback):
             for k, v in logs.items():  # val_...
                 epoch_data[k] = v
             # send to db
-            model_id = self.mb.add_result(arch_id=self.arch_id,
+            model_id = self.mb.add_result(arch_name=self.arch_name,
                                           corpus=self.corpus,
                                           params=self.params,
                                           result={"result": epoch_data},

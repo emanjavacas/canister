@@ -23,7 +23,6 @@ def generate_clusters(n_points=100, n_clusters=5, n_dim=3, noise=0.15):
 
 
 if __name__ == '__main__':
-
     mb = ModelBase("test.db")
 
     X, y = generate_clusters(noise=0.5, n_clusters=4)
@@ -38,8 +37,10 @@ if __name__ == '__main__':
     params = clf.get_params()
     arch = svm.LinearSVC.__name__
 
-    mb.add_result(arch_id=arch,
-                 corpus="randomdata",
-                 params=params,
-                 epoch_number=0,
-                 result={"y_pred": y_pred.tolist(), "y_test": y_test.tolist()})
+    mb.add_result(
+        arch_name=arch,
+        model_id="simple svm",
+        corpus="randomdata",
+        params=params,
+        result={"y_pred": y_pred.tolist(),
+                "y_test": y_test.tolist()})
