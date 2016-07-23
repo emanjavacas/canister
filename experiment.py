@@ -20,6 +20,8 @@ def log(msg, level=logging.INFO):
 
 
 def get_commit(fname):
+    """Returns current commit on file specified by fname or None if an error
+    is thrown by git (File doesn't exist) or if file is not under git VCS"""
     if os.path.isfile(fname):
         dirname = os.path.dirname(fname)
     elif os.path.isdir(fname):
@@ -36,6 +38,17 @@ def get_commit(fname):
 
 
 def make_hash(o):
+    """Returns a hash number for an object, which can also be a dict or a list
+
+    >>> make_hash(range(10))
+    -6299899980521991026
+    >>> make_hash(list(range(10)))
+    -4181190870548101704
+    >>> a = make_hash({'a': 1, 'b': 2, 'c': 3})
+    >>> b = make_hash({'c': 3, 'a': 1, 'b': 2})
+    >>> a == b
+    True
+    """
     def freeze(o):
         if isinstance(o, dict):
             return frozenset({k: freeze(v) for k, v in o.items()}.items())
@@ -46,7 +59,81 @@ def make_hash(o):
 
 
 def merge(d1, d2):
+    """merges two dictionaries, nested values are overwitten by d1
+
+    >>> d = merge({'a': 1}, {'b': 2})
+    >>> assert d == {'a': 1, 'b': 2}
+
+    >>> d = merge({'a': {'b': 2}}, {'b': 2, 'a': {'c': 3}})
+    >>> assert d == {'a': {'c': 3}, 'b': 2}
+    """
     return dict(d1, **d2)
+
+
+def update_in(d, path, f, *args):
+    """
+    Parameters:
+    -----------
+    d: dict
+    path: list of key or function
+    f: update function (takes nested element or None if element isn't found)
+
+    Applies func `f` on dict `d` on element nested specified by list `path`.
+    Items in path are dictionary keys or functions. If a key doesn't match any
+    element, an empty dictionary is created at that point. If a nested element
+    is a list, the corresponding path item should be a pred func that takes a
+    list and returns True at a desired item. If no element in list is matched,
+    nothing else happens. Preds on list only match the first element.
+
+    # Normal nested update
+    >>> d = {'c': {'d': 2}}
+    >>> update_in(d, ['c', 'd'], lambda x: x + 3)
+    >>> assert d == {'c': {'d': 5}}
+
+    # Update on missing element
+    >>> d = {'a': {'b': 1}}
+    >>> update_in(d, ['c', 'd'], lambda x: x or [] + [3])
+    >>> assert d == {'a': {'b': 1}, 'c': {'d': [3]}}
+
+    # Update on dictionary inside nested list
+    >>> d = {'a': [{'b': {'c': 1}}, {'d': 2}]}
+    >>> update_in(d, ['a', lambda x: 'b' in x, 'b', 'c'], lambda x: x + 3)
+    >>> assert d == {'a': [{'b': {'c': 4}}, {'d': 2}]}
+
+    # Non update on failing pred
+    >>> d = {'a': [{'b': {'c': 1}}, {'d': 2}]}
+    >>> update_in(d, ['a', lambda x: 'e' in x, 'b', 'c'], lambda x: x + 3)
+    >>> assert d == {'a': [{'b': {'c': 1}}, {'d': 2}]}
+
+    # Update on first matchin element of list
+    >>> d = {'a': [{'b': {'c': 1}}, {'d': 2}, {'b': {'c': 2}}]}
+    >>> update_in(d, ['a', lambda x: 'b' in x, 'b', 'c'], lambda x: x + 3)
+    >>> assert d == {'a': [{'b': {'c': 4}}, {'d': 2}, {'b': {'c': 2}}]}
+    """
+    if len(path) == 1:
+        if callable(path[0]):
+            assert isinstance(d, list), "Found pred but target is not list"
+            for idx, i in enumerate(d):
+                if path[0](i):
+                    d[idx] = f(i, *args)
+                    return
+        else:
+            d[path[0]] = f(d.get(path[0]), *args)
+    else:
+        if callable(path[0]):
+            assert isinstance(d, list), "Found pred but target is not list"
+            for i in d:
+                if path[0](i):
+                    update_in(i, path[1:], f, *args)
+                    break
+        else:
+            if path[0] not in d:
+                d[path[0]] = {}
+            update_in(d[path[0]], path[1:], f, *args)
+
+"""
+TinyDB extra operations
+"""
 
 
 def append(field, item):
@@ -56,29 +143,6 @@ def append(field, item):
         else:
             element[field].append(item)
     return transform
-
-
-def update_in(d, path, f, *args):
-    if len(path) == 1:
-        if callable(path[0]):
-            assert isinstance(d, list), "Found pred but target is not list"
-            for idx, i in enumerate(d):
-                if path[0](i):
-                    d[idx] = f(i, *args)
-            raise KeyError("Pred failed at %s" % i)
-        else:
-            d[path[0]] = f(d.get(path[0]), *args)
-    else:
-        if callable(path[0]):
-            assert isinstance(d, list), "Found pred but target is not list"
-            for i in d:
-                if path[0](i):
-                    update_in(i, path[1:], f, *args)
-            raise KeyError("Pred failed at %s" % i)
-        else:
-            if path[0] not in d:
-                d[path[0]] = {}
-            update_in(d[path[0]], path[1:], f, *args)
 
 
 def append_in(path, item):
@@ -112,6 +176,11 @@ def remove(field, item):
     return transform
 
 
+"""
+Factory update_in preds for models
+"""
+
+
 def model_pred(model_id):
     def f(model):
         return model["model_id"] == model_id
@@ -139,7 +208,7 @@ class Experiment:
     def new(cls, path, corpus, tags=(), **opt_params):
         exp = cls(path)
         if exp.exists():
-            raise ValueError("Experiment %s already exists" % exp.id)
+            raise ValueError("Experiment %s already exists" % str(exp.id))
         base = {"id": exp.id,
                 "corpus": corpus,
                 "tags": tags,
@@ -153,7 +222,7 @@ class Experiment:
         if exp.exists():
             return exp
         else:
-            log("Creating new Experiment %s" % exp.id)
+            log("Creating new Experiment %s" % str(exp.id))
             return cls.new(path, corpus, tags=tags, **opt_params)
 
     def add_tag(self, tag):
@@ -201,8 +270,8 @@ class Experiment:
                 "timestamp": time()}
 
         def check_params(self, params):
-            models = self.experiment.db.search(
-                where("id") == self.experiment.id)["models"]
+            models = self.experiment.db.get(where("id") == self.experiment.id)["models"]
+            print(models)
             params_hash = make_hash(params)
             for model in models:
                 if make_hash(model["params"]) == params_hash:
@@ -210,16 +279,14 @@ class Experiment:
 
         @contextlib.contextmanager
         def session(self, params):
-            try:
-                self.check_params(params)
-                self.session_params = params
-                result = {"params": params, "meta": self.result_meta()}
-                which_model = model_pred(self.model_id)
-                path = ["models", which_model, "results"]
-                self.experiment.db.update(append_in(path, result), self.cond)
-                yield self
-            finally:
-                self.session_params = None
+            # self.check_params(params)
+            self.session_params = params
+            result = {"params": params, "meta": self.result_meta()}
+            which_model = model_pred(self.model_id)
+            path = ["models", which_model, "results"]
+            self.experiment.db.update(append_in(path, result), self.cond)
+            yield self
+            self.session_params = None
 
         def _add_result(self, result, params):
             meta = self.result_meta()
@@ -259,9 +326,3 @@ class Experiment:
 # q = Query("a")
 # db.search(where("a")["d"]["A"] == "V")
 # db.search(where("a").any())
-
-# d = {"a": [{"b": [{"c": 1}]},
-#            {"d": [{"e": 2}]}]}
-
-# update_in(d, ["a", lambda x: "b" in x], lambda d: merge(d, {"Hu!": "Ha!"}))
-# update_in(d, ["a", lambda x: "f" in x, "h"], lambda l: (l or []) + ["HI!"])
