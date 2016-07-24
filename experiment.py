@@ -4,12 +4,15 @@ import os
 import logging
 import inspect
 import contextlib
-from getpass import getuser
-from platform import platform
-from subprocess import check_output, CalledProcessError
 from time import time
 from uuid import uuid4
+from platform import platform
+from getpass import getuser
+from subprocess import check_output, CalledProcessError
+
 from tinydb import TinyDB, where
+
+from sftp_storage import SFTPStorage, WrongPathException
 
 
 logger = logging.getLogger(__name__)
@@ -195,7 +198,10 @@ def params_pred(params_hash):
 
 class Experiment:
     def __init__(self, path):
-        self.db = TinyDB(path)
+        try:
+            self.db = TinyDB(path, policy='autoadd', storage=SFTPStorage)
+        except WrongPathException:
+            self.db = TinyDB(path)
         self.id = self.get_id()
 
     def get_id(self):
