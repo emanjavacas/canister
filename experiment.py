@@ -12,8 +12,6 @@ from subprocess import check_output, CalledProcessError
 
 from tinydb import TinyDB, where
 
-from sftp_storage import SFTPStorage, WrongPathException
-
 
 class ExistingModelParamsException(Exception):
     pass
@@ -179,19 +177,28 @@ def append(field, item):
     return transform
 
 
-def append_in(path, item):
+def extend_in(path, item):
+    """
+    Appends item to a list nested in the matching db entry specified by `path`
+    """
     def transform(element):
         update_in(element, path, lambda l: (l or []) + [item])
     return transform
 
 
 def assign_in(path, item):
+    """
+    Sets item to a dict nested in the matching db entry specified by `path`
+    """
     def transform(element):
         update_in(element, path, lambda d: merge(d or {}, item))
     return transform
 
 
 def extend(field, item):
+    """
+    Appends item to a list specified by `path` in the matching db entry
+    """
     def transform(element):
         if field not in element:
             element[field] = [item]
@@ -202,6 +209,9 @@ def extend(field, item):
 
 
 def remove(field, item):
+    """
+    Removes item from list
+    """
     def transform(element):
         if field not in element:
             return
@@ -217,7 +227,7 @@ Factory update_in preds for models
 
 def model_pred(model_id):
     def f(model):
-        return model["model_id"] == model_id
+        return model["modelId"] == model_id
     return f
 
 
@@ -228,40 +238,66 @@ def params_pred(params):
 
 
 class Experiment:
-    def __init__(self, path):
+    def __init__(self, path, exp_id=None):
+        """
+        A class to encapsulate information about a experiment and store
+        together different experiment runs.
+        The recommended way to identify an experiment is overwriting
+        Experiment.get_id in a child class in a way that is dependent
+        from the source file. Example:
+
+        class MyExperiment(Experiment):
+            def get_id(self):
+                return inspect.getsourcefile(self)  # return __file__
+
+        Alternatively, one can pass an id as a constructor parameter. If
+        no id is passed, the default behaviour is to generate a random id
+        (meaning a new experiment is created for each run).
+
+        Experiments are instantiated with the classmethod Experiment.new,
+        which additionally stores the experiment in the database with useful
+        metadata or Experiment.use, which additionally makes sure that the
+        experiment is stored only the first time.
+        Actual experiments are run on models. To add a model to the current
+        experiment, instantiate the inner class Model with Experiment.model.
+
+        model = Experiment.use(path, corpus).model("modelId", {"type": "SVM"})
+
+        Model instantiates and encapsulates model information, providing
+        database persistency. A model_id is required to identify the model.
+        It also provides convenience methods to store experiment results for
+        both single-result and epoch-based training experiments.
+        See Model.session
+
+        Parameters:
+        -----------
+        path: str, path to the database file backend. A path in a remote
+            machine can be specified with syntax:
+                username@host:/path/to/remote/file.
+        """
         try:
-            self.db = TinyDB(path, policy='autoadd', storage=SFTPStorage)
-        except WrongPathException:
+            from sftp_storage import SFTPStorage, WrongPathException
+            try:
+                self.db = TinyDB(path, policy='autoadd', storage=SFTPStorage)
+            except WrongPathException:
+                self.db = TinyDB(path)
+        except ImportError:
             self.db = TinyDB(path)
+
         self.git = GitInfo(self.getsourcefile(self))
-        self.id = self.get_id()
+        self.id = exp_id if exp_id else self.get_id()
 
     def get_id(self):
         return uuid4().hex
 
+    def getsourcefile(self):
+        return os.path.realpath(inspect.getsourcefile(type(self)))
+
     def exists(self):
         return self.db.get(where("id") == self.id)
 
-    @classmethod
-    def new(cls, path, corpus, tags=(), **opt_params):
-        exp = cls(path)
-        if exp.exists():
-            raise ValueError("Experiment %s already exists" % str(exp.id))
-        base = {"id": exp.id,
-                "corpus": corpus,
-                "tags": tags,
-                "created": str(datetime.now())}
-        exp.db.insert(merge(base, opt_params))
-        return exp
-
-    @classmethod
-    def use(cls, path, corpus, tags=(), **opt_params):
-        exp = cls(path)
-        if exp.exists():
-            return exp
-        else:
-            log("Creating new Experiment %s" % str(exp.id))
-            return cls.new(path, corpus, tags=tags, **opt_params)
+    def set_corpus(self, corpus):
+        self.db.insert({"corpus": corpus})
 
     def add_tag(self, tag):
         self.db.update(
@@ -271,15 +307,44 @@ class Experiment:
         return self.db.update(
             remove("tags", tag), where("id") == self.id)
 
-    def getsourcefile(self):
-        return os.path.realpath(inspect.getsourcefile(type(self)))
+    @classmethod
+    def new(cls, path, corpus, exp_id=None, tags=(), **params):
+        """
+        Stores a new Experiment in the database. Throws an exception if
+        experiment already exists.
+        """
+        exp = cls(path)
+        if exp.exists():
+            raise ValueError("Experiment %s already exists" % str(exp.id))
+        base = {"id": exp_id if exp_id else exp.get_id(),
+                "corpus": corpus,
+                "tags": tags,
+                "created": str(datetime.now())}
+        exp.db.insert(merge(base, params))
+        return exp
 
-    def find_model_by_key(self, key, val):
+    @classmethod
+    def use(cls, path, corpus, exp_id=None, tags=(), **params):
+        """
+        Only stores a new Experiment if none can be find with given parameters,
+        otherwise instantiate the existing one with data from database.
+        """
+        exp = cls(path, exp_id=exp_id)
+        if exp.exists():
+            return exp
+        else:
+            log("Creating new Experiment %s" % str(exp.id))
+            return cls.new(path, corpus, exp_id=exp_id, tags=tags, **params)
+
+    def model_exists(self, model_id):
+        """
+        Returns:
+        --------
+
+        dict or None
+        """
         return self.db.get((where("id") == self.id) &
-                           where("models").any(where(key) == val))
-
-    def get_model(self, model_id):
-        return self.find_model_by_key("model_id", model_id)
+                           where("models").any(where("modelId") == model_id))
 
     def model(self, model_id, model_config={}):
         return self.Model(self, model_id, model_config)
@@ -287,14 +352,14 @@ class Experiment:
     class Model:
         def __init__(self, experiment, model_id, model_config={}):
             self._session_params = None
-            self.session_id = uuid4().hex
             self.e = experiment
             self.model_id = model_id
+            self.which_model = model_pred(self.model_id)
             self.cond = ((where("id") == experiment.id) &
-                         where("models").any(where("model_id") == model_id))
-            if not self.e.get_model(self.model_id):
-                model = {"model_id": model_id, "model_config": model_config}
-                self.e.db.update(append_in(["models"], model),
+                         where("models").any(where("modelId") == model_id))
+            if not self.e.model_exists(self.model_id):
+                model = {"modelId": model_id, "modelConfig": model_config}
+                self.e.db.update(extend_in(["models"], model),
                                  where("id") == self.e.id)
 
         def _result_meta(self):
@@ -306,24 +371,46 @@ class Experiment:
 
         def _check_params(self, params):
             ms = self.e.db.get(where("id") == self.e.id)["models"]
-            model = next(m for m in ms if m if m["model_id"] == self.model_id)
+            model = next(m for m in ms if m if m["modelId"] == self.model_id)
             for result in model.get("sessions", []):
                 if result["params"] == params:
                     raise ExistingModelParamsException()
 
         def _add_result(self, result, params):
             meta = self._result_meta()
-            which_model = model_pred(self.model_id)
             result = {"params": params, "meta": meta, "result": result}
-            path = ["models", which_model, "sessions"]
-            self.e.db.update(append_in(path, result), self.cond)
+            path = ["models", self.which_model, "sessions"]
+            self.e.db.update(extend_in(path, result), self.cond)
+
+        def _add_session_result(self, result):
+            """
+            Adds (partial) result to session currently running. Session is
+            identifed based on session `params`. In case a model is run with
+            the same params in a second session, results are added to the
+            chronologically last session (which means that we relay on the fact
+            that `update_in` checks lists in reverse, see `update_in`)
+            """
+            which_result = params_pred(self._session_params)
+            path = ["models", self.which_model, "sessions", which_result, "result"]
+            self.e.db.update(extend_in(path, result), self.cond)
 
         @contextlib.contextmanager
         def session(self, params, ensure_unique=True):  # to try: store on exit
             """
             Context manager for cases in which we want to add several results
             to the same experiment run. Current session is identified based on
-            `params` (see _add_session_result)
+            `params` (see _add_session_result).
+
+            Example:
+            model_db = Experiment.use("test.json", "test-corpus").model("id")
+            with model_db.session({"param-1": 10, "param-2": 100}) as session:
+                from time import time
+                start_time = time()
+                svm.fit(X_train, y_train)
+                end_time = time()
+                session.add_meta("duration": end_time - start_time)
+                y_pred = svm.predict(X_test)
+                session.add_result({"accuracy": accuracy(y_pred, y_true)})
 
             Parameters:
             -----------
@@ -336,24 +423,19 @@ class Experiment:
             # enter
             self._session_params = params
             result = {"params": params, "meta": self._result_meta()}
-            path = ["models", model_pred(self.model_id), "sessions"]
-            self.e.db.update(append_in(path, result), self.cond)
+            which_result = params_pred(self._session_params)
+            path = ["models", self.which_model, "sessions", which_result]
+            self.e.db.update(extend_in(path, result), self.cond)
             yield self
             # exit
             self._session_params = None
 
-        def _add_session_result(self, result):
-            """
-            Adds (partial) result to session currently running. Session is
-            identifed based on session `params`. In case a model is run with
-            the same params in a second session, results are added to the
-            chronologically last session (which means that we relay on the fact
-            that `update_in` checks lists in reverse, see `update_in`)
-            """
-            which_model = model_pred(self.model_id)
+        def add_meta(self, key, val):
+            if not self._session_params:
+                raise ValueError("add_meta requires session context manager")
             which_result = params_pred(self._session_params)
-            path = ["models", which_model, "sessions", which_result, "result"]
-            self.e.db.update(append_in(path, result), self.cond)
+            path = ["models", self.which_model, "sessions", which_result, "meta", key]
+            self.e.db.update(assign_in(path, val), self.cond)
 
         def add_result(self, result, params=None):
             if not params and not self._session_params:
@@ -371,17 +453,6 @@ class Experiment:
                 result.update({"timestamp": str(datetime.now())})
             self._add_session_result(result)
 
-# model = Experiment.use("test.json", "corpus").model("test-model")
-# with model.session(params) as session:
-#     session.add_result()
-# db = TinyDB("test.json")
-# db.all()
-# model = Experiment.use("test.json", "corpus").model("test-model")
-# model.add_result({"a": 1}, "good")
-# db.insert({"a": {"b": "c", "d": {"A": "V"}}})
-# q = Query("a")
-# db.search(where("a")["d"]["A"] == "V")
-# db.search(where("a").any())
 
 if __name__ == '__main__':
     import doctest
