@@ -394,6 +394,16 @@ class Experiment:
             path = ["models", self.which_model, "sessions", which_result, "result"]
             self.e.db.update(extend_in(path, result), self.cond)
 
+        def _start_session(self, params):
+            self._session_params = params
+            which_result = params_pred(self._session_params)
+            path = ["models", self.which_model, "sessions", which_result]
+            result = {"params": params, "meta": self._result_meta()}
+            self.e.db.update(extend_in(path, result), self.cond)
+
+        def _end_session(self):
+            self._session_params = None
+
         @contextlib.contextmanager
         def session(self, params, ensure_unique=True):  # to try: store on exit
             """
@@ -420,15 +430,9 @@ class Experiment:
             """
             if ensure_unique:
                 self._check_params(params)
-            # enter
-            self._session_params = params
-            result = {"params": params, "meta": self._result_meta()}
-            which_result = params_pred(self._session_params)
-            path = ["models", self.which_model, "sessions", which_result]
-            self.e.db.update(extend_in(path, result), self.cond)
+            self._start_session(params)
             yield self
-            # exit
-            self._session_params = None
+            self._end_session()
 
         def add_meta(self, key, val):
             if not self._session_params:
