@@ -15,7 +15,7 @@ from tinydb import TinyDB, where
 from sftp_storage import SFTPStorage, WrongPathException
 
 
-class ExistingModelParams(Exception):
+class ExistingModelParamsException(Exception):
     pass
 
 
@@ -26,22 +26,41 @@ def log(msg, level=logging.WARN):
     logger.log(level, msg)
 
 
-def get_commit(fname):
-    """Returns current commit on file specified by fname or None if an error
-    is thrown by git (File doesn't exist) or if file is not under git VCS"""
+def get_dir(fname):
     if os.path.isfile(fname):
-        dirname = os.path.dirname(fname)
+        return os.path.dirname(fname)
     elif os.path.isdir(fname):
-        dirname = fname
+        return fname
     else:
-        log("Not valid path %s" % fname)
-    try:
-        commit = check_output(["git", "describe", "--always"], cwd=dirname)
-        return commit.strip().decode('utf-8')
-    except FileNotFoundError:
-        log("Git doesn't seem to be installed in your system")
-    except CalledProcessError:
-        log("Not a git repository")
+        raise ValueError("Not valid path %s" % fname)
+
+
+class GitInfo:
+    def __init__(self, fname):
+        self.dirname = get_dir(fname)
+
+    def run(self, cmd):
+        try:
+            output = check_output(cmd, cwd=self.dirname)
+            return output.strip().decode('utf-8')
+        except OSError:
+            log("Git doesn't seem to be installed in your system")
+        except CalledProcessError:
+            log("Not a git repository")
+
+    def get_commit(self):
+        """
+        Returns current commit on file or None if an error is thrown by git
+        (OSError) or if file is not under git VCS (CalledProcessError)
+        """
+        return self.run(["git", "describe", "--always"])
+
+    def get_branch(self):
+        """
+        Returns current active branch on file or None if an error is thrown
+        by git (OSError) or if file is not under git VCS (CalledProcessError)
+        """
+        return self.run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
 
 
 def parse_date(string_date):
@@ -214,6 +233,7 @@ class Experiment:
             self.db = TinyDB(path, policy='autoadd', storage=SFTPStorage)
         except WrongPathException:
             self.db = TinyDB(path)
+        self.git = GitInfo(self.getsourcefile(self))
         self.id = self.get_id()
 
     def get_id(self):
@@ -254,9 +274,6 @@ class Experiment:
     def getsourcefile(self):
         return os.path.realpath(inspect.getsourcefile(type(self)))
 
-    def get_commit(self):
-        return get_commit(self.getsourcefile())
-
     def find_model_by_key(self, key, val):
         return self.db.get((where("id") == self.id) &
                            where("models").any(where(key) == val))
@@ -281,7 +298,8 @@ class Experiment:
                                  where("id") == self.e.id)
 
         def _result_meta(self):
-            return {"commit": self.e.get_commit() or "not-git-tracked",
+            return {"commit": self.e.git.get_commit() or "not-git-tracked",
+                    "branch": self.e.git.get_branch() or "not-git-tracked",
                     "user": getuser(),
                     "platform": platform(),
                     "timestamp": str(datetime.now())}
@@ -291,7 +309,7 @@ class Experiment:
             model = next(m for m in ms if m if m["model_id"] == self.model_id)
             for result in model.get("sessions", []):
                 if result["params"] == params:
-                    raise ExistingModelParams()
+                    raise ExistingModelParamsException()
 
         def _add_result(self, result, params):
             meta = self._result_meta()
