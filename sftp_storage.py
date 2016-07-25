@@ -46,8 +46,7 @@ class SFTPStorage(Storage):
         self.ssh = ssh
         self.sftp = ssh.open_sftp()
         if self.path.startswith('~'):
-            self.path = os.path.join(find_home(self.ssh),
-                                         self.path[2:])
+            self.path = os.path.join(find_home(self.ssh), self.path[2:])
         self.sftp.open(self.path, mode='a').close()
         self._handle = self.sftp.open(self.path, mode='r+')
 
