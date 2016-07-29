@@ -144,7 +144,7 @@ def update_in(d, path, f, *args):
     """
     if len(path) == 1:
         if callable(path[0]):
-            assert isinstance(d, list), "Found pred but target is not list"
+            assert isinstance(d, list), "Found pred but target is %s" % type(d)
             for idx, i in list(enumerate(d))[::-1]:  # reverse list
                 if path[0](i):
                     d[idx] = f(i, *args)
@@ -153,7 +153,7 @@ def update_in(d, path, f, *args):
             d[path[0]] = f(d.get(path[0]), *args)
     else:
         if callable(path[0]):
-            assert isinstance(d, list), "Found pred but target is not list"
+            assert isinstance(d, list), "Found pred but target is %s" % type(d)
             for i in d[::-1]:
                 if path[0](i):
                     update_in(i, path[1:], f, *args)
@@ -238,43 +238,43 @@ def params_pred(params):
 
 
 class Experiment:
+    """
+    A class to encapsulate information about a experiment and store
+    together different experiment runs.
+    The recommended way to identify an experiment is overwriting
+    Experiment.get_id in a child class in a way that is dependent
+    from the source file. Example:
+
+    class MyExperiment(Experiment):
+        def get_id(self):
+            return inspect.getsourcefile(self)  # return __file__
+
+    Alternatively, one can pass an id as a constructor parameter. If
+    no id is passed, the default behaviour is to generate a random id
+    (meaning a new experiment is created for each run).
+
+    Experiments are instantiated with the classmethod Experiment.new,
+    which additionally stores the experiment in the database with useful
+    metadata or Experiment.use, which additionally makes sure that the
+    experiment is stored only the first time.
+    Actual experiments are run on models. To add a model to the current
+    experiment, instantiate the inner class Model with Experiment.model.
+
+    model = Experiment.use(path, corpus).model("modelId", {"type": "SVM"})
+
+    Model instantiates and encapsulates model information, providing
+    database persistency. A model_id is required to identify the model.
+    It also provides convenience methods to store experiment results for
+    both single-result and epoch-based training experiments.
+    See Model.session
+
+    Parameters:
+    -----------
+    path: str, path to the database file backend. A path in a remote
+        machine can be specified with syntax:
+        username@host:/path/to/remote/file.
+    """
     def __init__(self, path, exp_id=None):
-        """
-        A class to encapsulate information about a experiment and store
-        together different experiment runs.
-        The recommended way to identify an experiment is overwriting
-        Experiment.get_id in a child class in a way that is dependent
-        from the source file. Example:
-
-        class MyExperiment(Experiment):
-            def get_id(self):
-                return inspect.getsourcefile(self)  # return __file__
-
-        Alternatively, one can pass an id as a constructor parameter. If
-        no id is passed, the default behaviour is to generate a random id
-        (meaning a new experiment is created for each run).
-
-        Experiments are instantiated with the classmethod Experiment.new,
-        which additionally stores the experiment in the database with useful
-        metadata or Experiment.use, which additionally makes sure that the
-        experiment is stored only the first time.
-        Actual experiments are run on models. To add a model to the current
-        experiment, instantiate the inner class Model with Experiment.model.
-
-        model = Experiment.use(path, corpus).model("modelId", {"type": "SVM"})
-
-        Model instantiates and encapsulates model information, providing
-        database persistency. A model_id is required to identify the model.
-        It also provides convenience methods to store experiment results for
-        both single-result and epoch-based training experiments.
-        See Model.session
-
-        Parameters:
-        -----------
-        path: str, path to the database file backend. A path in a remote
-            machine can be specified with syntax:
-                username@host:/path/to/remote/file.
-        """
         try:
             from sftp_storage import SFTPStorage, WrongPathException
             try:
@@ -284,7 +284,7 @@ class Experiment:
         except ImportError:
             self.db = TinyDB(path)
 
-        self.git = GitInfo(self.getsourcefile(self))
+        self.git = GitInfo(self.getsourcefile())
         self.id = exp_id if exp_id else self.get_id()
 
     def get_id(self):
@@ -396,8 +396,7 @@ class Experiment:
 
         def _start_session(self, params):
             self._session_params = params
-            which_result = params_pred(self._session_params)
-            path = ["models", self.which_model, "sessions", which_result]
+            path = ["models", self.which_model, "sessions"]
             result = {"params": params, "meta": self._result_meta()}
             self.e.db.update(extend_in(path, result), self.cond)
 
@@ -418,7 +417,7 @@ class Experiment:
                 start_time = time()
                 svm.fit(X_train, y_train)
                 end_time = time()
-                session.add_meta("duration": end_time - start_time)
+                session.add_meta({"duration": end_time - start_time})
                 y_pred = svm.predict(X_test)
                 session.add_result({"accuracy": accuracy(y_pred, y_true)})
 
@@ -434,12 +433,19 @@ class Experiment:
             yield self
             self._end_session()
 
-        def add_meta(self, key, val):
+        def add_meta(self, d):
+            """
+            Parameters:
+            -----------
+            d: dict, Specifies multiple key-val additional info for the session
+            """
             if not self._session_params:
                 raise ValueError("add_meta requires session context manager")
+            if not isinstance(d, dict):
+                raise ValueError("add_meta input must be dict")
             which_result = params_pred(self._session_params)
-            path = ["models", self.which_model, "sessions", which_result, "meta", key]
-            self.e.db.update(assign_in(path, val), self.cond)
+            path = ["models", self.which_model, "sessions", which_result, "meta"]
+            self.e.db.update(assign_in(path, d), self.cond)
 
         def add_result(self, result, params=None):
             if not params and not self._session_params:
