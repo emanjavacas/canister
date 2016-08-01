@@ -70,4 +70,3 @@ class SFTPStorage(Storage):
         self._handle.close()
         self.ssh.close()
         self.sftp.close()
-
