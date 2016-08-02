@@ -279,10 +279,12 @@ class Experiment:
             from sftp_storage import SFTPStorage, WrongPathException
             try:
                 self.db = TinyDB(path, policy='autoadd', storage=SFTPStorage)
+                print("Using remote db file [%s]" % path)
             except WrongPathException:
                 self.db = TinyDB(path)
         except ImportError:
             self.db = TinyDB(path)
+            print("Using local file [%s]" % path)
 
         self.git = GitInfo(self.getsourcefile())
         self.id = exp_id if exp_id else self.get_id()
@@ -306,6 +308,10 @@ class Experiment:
     def remove_tag(self, tag):
         return self.db.update(
             remove("tags", tag), where("id") == self.id)
+
+    def get_models(self):
+        experiment = self.db.get(where("id") == self.id)
+        return experiment.get("models", {}) if experiment else {}
 
     @classmethod
     def new(cls, path, corpus, exp_id=None, tags=(), **params):
@@ -370,8 +376,10 @@ class Experiment:
                     "timestamp": str(datetime.now())}
 
         def _check_params(self, params):
-            ms = self.e.db.get(where("id") == self.e.id)["models"]
-            model = next(m for m in ms if m if m["modelId"] == self.model_id)
+            models = self.e.get_models()
+            if not models:
+                return
+            model = next(m for m in models if m if m["modelId"] == self.model_id)
             for result in model.get("sessions", []):
                 if result["params"] == params:
                     raise ExistingModelParamsException()
