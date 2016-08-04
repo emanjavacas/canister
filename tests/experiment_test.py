@@ -25,9 +25,9 @@ def generate_clusters(n_points=100, n_clusters=5, n_dim=3, noise=0.15):
     return X, y
 
 
-class ClusterExperiment(Experiment):
+class Clustering(Experiment):
     def get_id(self):
-        return inspect.getsourcefile(type(self))
+        return inspect.getsourcefile(lambda: 0)
 
 if __name__ == '__main__':
     X, y = generate_clusters(noise=0.5, n_clusters=4)
@@ -35,9 +35,9 @@ if __name__ == '__main__':
         train_test_split(X, y, test_size=0.33, random_state=42)
     clf = svm.LinearSVC()
 
-    corpus = "random_data"
-    model = ClusterExperiment.use(
-        "test.db", corpus=corpus, tags=('random', 'test')).model("LinearSVC")
+    model_meta = {}
+    model = Clustering.use("test.db", corpus="random", tags=('random', 'test')) \
+                      .model("LinearSVC", model_meta=model_meta)
     with model.session(clf.get_params(), ensure_unique=False) as session:
         start = time()
         clf.fit(X_train, y_train)

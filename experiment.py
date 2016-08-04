@@ -291,7 +291,7 @@ class Experiment:
         return uuid4().hex
 
     def getsourcefile(self):
-        return os.path.realpath(inspect.getsourcefile(type(self)))
+        return os.path.realpath(inspect.getsourcefile(lambda: 0))
 
     def exists(self):
         return self.db.get(where("id") == self.id)
@@ -316,7 +316,7 @@ class Experiment:
         exp = cls(path)
         if exp.exists():
             raise ValueError("Experiment %s already exists" % str(exp.id))
-        base = {"id": exp_id if exp_id else exp.get_id(),
+        base = {"id": exp_id if exp_id else exp.id,
                 "corpus": corpus,
                 "tags": tags,
                 "created": str(datetime.now())}
@@ -346,11 +346,11 @@ class Experiment:
         return self.db.get((where("id") == self.id) &
                            where("models").any(where("modelId") == model_id))
 
-    def model(self, model_id, model_config={}):
-        return self.Model(self, model_id, model_config)
+    def model(self, model_id, model_meta={}):
+        return self.Model(self, model_id, model_meta)
 
     class Model:
-        def __init__(self, experiment, model_id, model_config={}):
+        def __init__(self, experiment, model_id, model_meta={}):
             self._session_params = None
             self.e = experiment
             self.model_id = model_id
@@ -358,7 +358,7 @@ class Experiment:
             self.cond = ((where("id") == experiment.id) &
                          where("models").any(where("modelId") == model_id))
             if not self.e.model_exists(self.model_id):
-                model = {"modelId": model_id, "modelConfig": model_config}
+                model = {"modelId": model_id, "modelConfig": model_meta}
                 self.e.db.update(extend_in(["models"], model),
                                  where("id") == self.e.id)
 

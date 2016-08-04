@@ -3,12 +3,11 @@ from datetime import datetime
 import json
 
 from utils import CONFIG, flatten
-from canister.modelbase import ModelBase
 
 from json2html import json2html
 
 
-def transform(d, fn=lambda x: "null" if not x else x):
+def transform(d, fn=lambda x: x or "null"):
     "applies a transform function over the elements of nested iterables"
     for k, v in d.iteritems():
         d[k] = fn(v)
@@ -40,12 +39,9 @@ def transform_layers(arch):
 def dict2html(d):
     "wrapper over json2html, default to bootstrap"
     return json2html.convert(
-        json=d,
-        table_attributes=''.join(
+        json=d, table_attributes=''.join(
             ['class="table table-bordered table-hover"',
-             'style="list-style-type: none;font-size:small;"']
-        )
-    )
+             'style="list-style-type: none;font-size:small;"']))
 
 
 def timestamp_to_str(timestamp):
@@ -120,7 +116,7 @@ def get_arch(arch_name, corpus, fitted_model_idx, **kwargs):
     return _handle_model(arch, fitted_model_idx)
 
 
-def get_archs(tags=[]):
+def get_experiments(tags=[]):
     mb = ModelBase(CONFIG["db"]["db-path"])
     if not tags:
         tags = get_tags(mb=mb)
