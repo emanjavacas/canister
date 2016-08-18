@@ -379,7 +379,7 @@ class Experiment:
             models = self.e.get_models()
             if not models:
                 return
-            model = next(m for m in models if m if m["modelId"] == self.model_id)
+            model = next(m for m in models if m["modelId"] == self.model_id)
             for result in model.get("sessions", []):
                 if result["params"] == params:
                     raise ExistingModelParamsException()
