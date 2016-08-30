@@ -137,7 +137,7 @@ def update_in(d, path, f, *args):
     >>> update_in(d, ['a', lambda x: 'e' in x, 'b', 'c'], lambda x: x + 3)
     >>> assert d == {'a': [{'b': {'c': 1}}, {'d': 2}]}
 
-    # Update on first matchin element of list
+    # Update on first matching element of list
     >>> d = {'a': [{'b': {'c': 1}}, {'d': 2}, {'b': {'c': 2}}]}
     >>> update_in(d, ['a', lambda x: 'b' in x, 'b', 'c'], lambda x: x + 3)
     >>> assert d == {'a': [{'b': {'c': 1}}, {'d': 2}, {'b': {'c': 5}}]}
@@ -170,6 +170,7 @@ TinyDB extra operations
 
 def append(field, item):
     def transform(element):
+        print("Element", element)
         if field not in element:
             element[field] = [item]
         else:
@@ -177,7 +178,7 @@ def append(field, item):
     return transform
 
 
-def extend_in(path, item):
+def append_in(path, item):
     """
     Appends item to a list nested in the matching db entry specified by `path`
     """
@@ -197,7 +198,7 @@ def assign_in(path, item):
 
 def extend(field, item):
     """
-    Appends item to a list specified by `path` in the matching db entry
+    Appends item to a set specified by `path` in the matching db entry
     """
     def transform(element):
         if field not in element:
@@ -302,12 +303,10 @@ class Experiment:
         self.db.insert({"corpus": corpus})
 
     def add_tag(self, tag):
-        self.db.update(
-            extend("tags", tag), where("id") == self.id)
+        self.db.update(extend("tags", tag), where("id") == self.id)
 
     def remove_tag(self, tag):
-        return self.db.update(
-            remove("tags", tag), where("id") == self.id)
+        return self.db.update(remove("tags", tag), where("id") == self.id)
 
     def get_models(self):
         experiment = self.db.get(where("id") == self.id)
@@ -319,12 +318,13 @@ class Experiment:
         Stores a new Experiment in the database. Throws an exception if
         experiment already exists.
         """
-        exp = cls(path)
+        exp = cls(path, exp_id=exp_id)
         if exp.exists():
             raise ValueError("Experiment %s already exists" % str(exp.id))
         base = {"id": exp_id if exp_id else exp.id,
                 "corpus": corpus,
                 "tags": tags,
+                "models": [],
                 "created": str(datetime.now())}
         exp.db.insert(merge(base, params))
         return exp
@@ -352,21 +352,23 @@ class Experiment:
         return self.db.get((where("id") == self.id) &
                            where("models").any(where("modelId") == model_id))
 
-    def model(self, model_id, model_meta={}):
-        return self.Model(self, model_id, model_meta)
+    def model(self, model_id, model_config={}):
+        return self.Model(self, model_id, model_config)
 
     class Model:
-        def __init__(self, experiment, model_id, model_meta={}):
+        def __init__(self, experiment, model_id, model_config):
             self._session_params = None
             self.e = experiment
             self.model_id = model_id
             self.which_model = model_pred(self.model_id)
             self.cond = ((where("id") == experiment.id) &
                          where("models").any(where("modelId") == model_id))
-            if not self.e.model_exists(self.model_id):
-                model = {"modelId": model_id, "modelConfig": model_meta}
-                self.e.db.update(extend_in(["models"], model),
-                                 where("id") == self.e.id)
+            if not self.exists():
+                self._add_default_model(**model_config)
+
+        def _add_default_model(self, **kwargs):
+            model = merge({"modelId": self.model_id}, kwargs)
+            self.e.db.update(append("models", model), where("id") == self.e.id)
 
         def _result_meta(self):
             return {"commit": self.e.git.get_commit() or "not-git-tracked",
@@ -388,7 +390,7 @@ class Experiment:
             meta = self._result_meta()
             result = {"params": params, "meta": meta, "result": result}
             path = ["models", self.which_model, "sessions"]
-            self.e.db.update(extend_in(path, result), self.cond)
+            self.e.db.update(append_in(path, result), self.cond)
 
         def _add_session_result(self, result):
             """
@@ -400,16 +402,19 @@ class Experiment:
             """
             which_result = params_pred(self._session_params)
             path = ["models", self.which_model, "sessions", which_result, "result"]
-            self.e.db.update(extend_in(path, result), self.cond)
+            self.e.db.update(append_in(path, result), self.cond)
 
         def _start_session(self, params):
             self._session_params = params
             path = ["models", self.which_model, "sessions"]
             result = {"params": params, "meta": self._result_meta()}
-            self.e.db.update(extend_in(path, result), self.cond)
+            self.e.db.update(append_in(path, result), self.cond)
 
         def _end_session(self):
             self._session_params = None
+
+        def exists(self):
+            return self.e.model_exists(self.model_id)
 
         @contextlib.contextmanager
         def session(self, params, ensure_unique=True):  # to try: store on exit
@@ -443,6 +448,8 @@ class Experiment:
 
         def add_meta(self, d):
             """
+            Adds session meta info
+
             Parameters:
             -----------
             d: dict, Specifies multiple key-val additional info for the session
@@ -451,6 +458,8 @@ class Experiment:
                 raise ValueError("add_meta requires session context manager")
             if not isinstance(d, dict):
                 raise ValueError("add_meta input must be dict")
+            if not self.exists():
+                self._add_default_model()
             which_result = params_pred(self._session_params)
             path = ["models", self.which_model, "sessions", which_result, "meta"]
             self.e.db.update(assign_in(path, d), self.cond)
@@ -475,3 +484,9 @@ class Experiment:
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
+    model_db = Experiment.use("example.db", "random.data", exp_id=10).model("test")
+    with model_db.session({"a": 1}, ensure_unique=False) as session:
+        for i in range(10):
+            session.add_epoch(i, {'loss': i ** 2})
+        session.add_meta({"a": 2})
