@@ -1,15 +1,7 @@
 
 import inspect
-import logging
 import os
 from datetime import datetime
-
-
-logger = logging.getLogger(__name__)
-
-
-def log(msg, level=logging.WARN):
-    logger.log(level, msg)
 
 
 def get_dir(fname):

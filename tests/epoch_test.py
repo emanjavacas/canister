@@ -63,7 +63,7 @@ if __name__ == '__main__':
     model.compile(loss="mean_squared_error", optimizer="rmsprop", metrics=['accuracy'])
 
     exp_id = getsourcefile(lambda: 0)
-    model_db = Experiment.use("test.json", "random_data", exp_id=exp_id) \
+    model_db = Experiment.use("test.json", exp_id=exp_id) \
                          .model("test-model", model.get_config())
     start = time()
 

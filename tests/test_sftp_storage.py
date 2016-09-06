@@ -53,3 +53,4 @@ def test_json_invalid_directory():
         with TinyDB('/this/is/an/invalid/path/db.json',
                     policy='autoadd', storage=SFTPStorage):
             pass
+

@@ -1,7 +1,15 @@
 
+import logging
 from subprocess import check_output, CalledProcessError
 
-import utils
+from canister import utils
+
+
+logger = logging.getLogger(__name__)
+
+
+def log(msg, level=logging.WARN):
+    logger.log(level, msg)
 
 
 class GitInfo:
@@ -16,9 +24,9 @@ class GitInfo:
             output = check_output(cmd, cwd=self.dirname)
             return output.strip().decode('utf-8')
         except OSError:
-            utils.log("Git doesn't seem to be installed in your system")
+            log("Git doesn't seem to be installed in your system")
         except CalledProcessError:
-            utils.log("Not a git repository")
+            log("Not a git repository")
 
     def get_commit(self):
         """

@@ -36,7 +36,7 @@ if __name__ == '__main__':
     clf = svm.LinearSVC()
 
     model_meta = {}
-    model = Clustering.use("test.db", corpus="random", tags=('random', 'test')) \
+    model = Clustering.use("test.db", tags=('random', 'test')) \
                       .model("LinearSVC", model_meta=model_meta)
     with model.session(clf.get_params(), ensure_unique=False) as session:
         start = time()
