@@ -1,167 +1,20 @@
 # coding: utf-8
 
-import os
-import logging
-import inspect
 import contextlib
 from datetime import datetime
 from uuid import uuid4
 from platform import platform
 from getpass import getuser
-from subprocess import check_output, CalledProcessError
 
 from tinydb import TinyDB, where
+
+import utils
+from git import GitInfo
 
 
 class ExistingModelParamsException(Exception):
     pass
 
-
-logger = logging.getLogger(__name__)
-
-
-def log(msg, level=logging.WARN):
-    logger.log(level, msg)
-
-
-def get_dir(fname):
-    if os.path.isfile(fname):
-        return os.path.dirname(fname)
-    elif os.path.isdir(fname):
-        return fname
-    else:
-        raise ValueError("Not valid path %s" % fname)
-
-
-class GitInfo:
-    def __init__(self, fname):
-        self.dirname = get_dir(fname)
-
-    def run(self, cmd):
-        try:
-            output = check_output(cmd, cwd=self.dirname)
-            return output.strip().decode('utf-8')
-        except OSError:
-            log("Git doesn't seem to be installed in your system")
-        except CalledProcessError:
-            log("Not a git repository")
-
-    def get_commit(self):
-        """
-        Returns current commit on file or None if an error is thrown by git
-        (OSError) or if file is not under git VCS (CalledProcessError)
-        """
-        return self.run(["git", "describe", "--always"])
-
-    def get_branch(self):
-        """
-        Returns current active branch on file or None if an error is thrown
-        by git (OSError) or if file is not under git VCS (CalledProcessError)
-        """
-        return self.run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-
-
-def parse_date(string_date):
-    """
-    >>> now = datetime.now()
-    >>> assert now == parse_date(str(now))
-    """
-    return datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S.%f")
-
-
-def make_hash(o):
-    """Returns a hash number for an object, which can also be a dict or a list
-
-    >>> make_hash(range(10))
-    -6299899980521991026
-    >>> make_hash(list(range(10)))
-    -4181190870548101704
-    >>> a = make_hash({'a': 1, 'b': 2, 'c': 3})
-    >>> b = make_hash({'c': 3, 'a': 1, 'b': 2})
-    >>> a == b
-    True
-    """
-    def freeze(o):
-        if isinstance(o, dict):
-            return frozenset({k: freeze(v) for k, v in o.items()}.items())
-        if isinstance(o, list):
-            return tuple([freeze(v) for v in o])
-        return o
-    return hash(freeze(o))
-
-
-def merge(d1, d2):
-    """merges two dictionaries, nested values are overwitten by d1
-
-    >>> d = merge({'a': 1}, {'b': 2})
-    >>> assert d == {'a': 1, 'b': 2}
-
-    >>> d = merge({'a': {'b': 2}}, {'b': 2, 'a': {'c': 3}})
-    >>> assert d == {'a': {'c': 3}, 'b': 2}
-    """
-    return dict(d1, **d2)
-
-
-def update_in(d, path, f, *args):
-    """
-    Parameters:
-    -----------
-    d: dict
-    path: list of key or function
-    f: update function (takes nested element or None if element isn't found)
-
-    Applies func `f` on dict `d` on element nested specified by list `path`.
-    Items in path are dictionary keys or functions. If a key doesn't match any
-    element, an empty dictionary is created at that point. If a nested element
-    is a list, the corresponding path item should be a pred func that takes a
-    list and returns True at a desired item. If no element in list is matched,
-    nothing else happens. If a pred match multiple elements, last one is used.
-
-    # Normal nested update
-    >>> d = {'c': {'d': 2}}
-    >>> update_in(d, ['c', 'd'], lambda x: x + 3)
-    >>> assert d == {'c': {'d': 5}}
-
-    # Update on missing element
-    >>> d = {'a': {'b': 1}}
-    >>> update_in(d, ['c', 'd'], lambda x: x or [] + [3])
-    >>> assert d == {'a': {'b': 1}, 'c': {'d': [3]}}
-
-    # Update on dictionary inside nested list
-    >>> d = {'a': [{'b': {'c': 1}}, {'d': 2}]}
-    >>> update_in(d, ['a', lambda x: 'b' in x, 'b', 'c'], lambda x: x + 3)
-    >>> assert d == {'a': [{'b': {'c': 4}}, {'d': 2}]}
-
-    # Non update on failing pred
-    >>> d = {'a': [{'b': {'c': 1}}, {'d': 2}]}
-    >>> update_in(d, ['a', lambda x: 'e' in x, 'b', 'c'], lambda x: x + 3)
-    >>> assert d == {'a': [{'b': {'c': 1}}, {'d': 2}]}
-
-    # Update on first matching element of list
-    >>> d = {'a': [{'b': {'c': 1}}, {'d': 2}, {'b': {'c': 2}}]}
-    >>> update_in(d, ['a', lambda x: 'b' in x, 'b', 'c'], lambda x: x + 3)
-    >>> assert d == {'a': [{'b': {'c': 1}}, {'d': 2}, {'b': {'c': 5}}]}
-    """
-    if len(path) == 1:
-        if callable(path[0]):
-            assert isinstance(d, list), "Found pred but target is %s" % type(d)
-            for idx, i in list(enumerate(d))[::-1]:  # reverse list
-                if path[0](i):
-                    d[idx] = f(i, *args)
-                    return
-        else:
-            d[path[0]] = f(d.get(path[0]), *args)
-    else:
-        if callable(path[0]):
-            assert isinstance(d, list), "Found pred but target is %s" % type(d)
-            for i in d[::-1]:
-                if path[0](i):
-                    update_in(i, path[1:], f, *args)
-                    break       # avoid mutating multiple instances
-        else:
-            if path[0] not in d:
-                d[path[0]] = {}
-            update_in(d[path[0]], path[1:], f, *args)
 
 """
 TinyDB extra operations
@@ -183,7 +36,7 @@ def append_in(path, item):
     Appends item to a list nested in the matching db entry specified by `path`
     """
     def transform(element):
-        update_in(element, path, lambda l: (l or []) + [item])
+        utils.update_in(element, path, lambda l: (l or []) + [item])
     return transform
 
 
@@ -192,7 +45,7 @@ def assign_in(path, item):
     Sets item to a dict nested in the matching db entry specified by `path`
     """
     def transform(element):
-        update_in(element, path, lambda d: merge(d or {}, item))
+        utils.update_in(element, path, lambda d: utils.merge(d or {}, item))
     return transform
 
 
@@ -294,7 +147,7 @@ class Experiment:
         return uuid4().hex
 
     def getsourcefile(self):
-        return os.path.realpath(inspect.getsourcefile(lambda: 0))
+        return utils.getsourcefile(lambda: None)
 
     def exists(self):
         return self.db.get(where("id") == self.id)
@@ -326,7 +179,7 @@ class Experiment:
                 "tags": tags,
                 "models": [],
                 "created": str(datetime.now())}
-        exp.db.insert(merge(base, params))
+        exp.db.insert(utils.merge(base, params))
         return exp
 
     @classmethod
@@ -339,7 +192,7 @@ class Experiment:
         if exp.exists():
             return exp
         else:
-            log("Creating new Experiment %s" % str(exp.id))
+            utils.log("Creating new Experiment %s" % str(exp.id))
             return cls.new(path, corpus, exp_id=exp_id, tags=tags, **params)
 
     def model_exists(self, model_id):
@@ -367,7 +220,7 @@ class Experiment:
                 self._add_default_model(**model_config)
 
         def _add_default_model(self, **kwargs):
-            model = merge({"modelId": self.model_id}, kwargs)
+            model = utils.merge({"modelId": self.model_id}, kwargs)
             self.e.db.update(append("models", model), where("id") == self.e.id)
 
         def _result_meta(self):
