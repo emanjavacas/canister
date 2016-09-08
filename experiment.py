@@ -211,7 +211,7 @@ class Experiment:
             where("models").any(where("modelId") == model_id))
 
     def model(self, model_id, model_config={}):
-        return self.Model(self, model_id, model_config)
+        return self.Model(self, model_id, {"config": model_config})
 
     class Model:
         def __init__(self, experiment, model_id, model_config):
