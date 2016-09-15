@@ -16,7 +16,7 @@ from canister.git import GitInfo
 logger = logging.getLogger(__name__)
 
 
-def log(msg, level=logging.WARN):
+def log(msg, level=logging.NOTSET):
     logger.log(level, msg)
 
 
@@ -138,17 +138,18 @@ class Experiment:
         machine can be specified with syntax:
         username@host:/path/to/remote/file.
     """
-    def __init__(self, path, exp_id=None):
+    def __init__(self, path, exp_id=None, verbose=False):
+        self.level = logging.WARN if verbose else logging.NOTSET
         try:
             from sftp_storage import SFTPStorage, WrongPathException
             try:
                 self.db = TinyDB(path, policy='autoadd', storage=SFTPStorage)
-                print("Using remote db file [%s]" % path)
+                log("Using remote db file [%s]" % path, level=self.level)
             except WrongPathException:
                 self.db = TinyDB(path)
         except ImportError:
             self.db = TinyDB(path)
-            print("Using local file [%s]" % path)
+            log("Using local file [%s]" % path, level=self.level)
 
         self.git = GitInfo(self.getsourcefile())
         self.id = exp_id if exp_id else self.get_id()
