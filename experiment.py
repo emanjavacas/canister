@@ -300,6 +300,8 @@ class Experiment:
             ensure_unique: bool, throw an exception in case model has already
                 been run with the same parameters
             """
+            assert isinstance(params, dict), \
+                "Params expected dict but got %s" % str(type(params))
             if ensure_unique:
                 self._check_params(params)
             self._start_session(params)
