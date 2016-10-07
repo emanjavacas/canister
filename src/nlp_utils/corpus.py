@@ -9,6 +9,22 @@ def lines_from_file(fname):
             yield line
 
 
+def lines_from_root(root):
+    if isinstance(root, types.GeneratorType):
+        for line in root:
+            yield line
+    elif isinstance(root, str):
+        if os.path.isdir(root):
+            for f in os.listdir(root):
+                for l in lines_from_file(os.path.join(root, f)):
+                    yield l
+    elif os.path.isfile(root):
+        for line in lines_from_file(root):
+            yield line
+    else:
+        raise ValueError("Unknown root type [%s]" % type(root))
+
+
 def pad(items, maxlen, paditem=0, paddir='left'):
     """
     Parameters:
@@ -33,7 +49,7 @@ class Corpus(object):
     def __init__(self, root, context=10, side='both'):
         """
         Parameters:
-        ------------
+        -----------
         root: str/generator, source of lines. If str, it is coerced to file/dir
         context: int, context characters around target char
         side: str, one of 'left', 'right', 'both', context origin
@@ -44,9 +60,20 @@ class Corpus(object):
             raise ValueError('Invalid side value [%s]' % side)
         self.side = side
 
-    def _encode_line(self, line, indexer, **kwargs):
+    def _pad_encode(self, line, indexer, **kwargs):
+        """
+        Parameters:
+        -----------
+        line: generator/list, a seq of units to be padded/encoded
+        indexer: Indexer, a fitted indexer
+        kwargs: optional arguments for Indexer.encode
+
+        Returns:
+        --------
+        generator over (context, target)
+        """
+        maxlen = len(line)
         encoded_line = [indexer.encode(c, **kwargs) for c in line]
-        maxlen = len(encoded_line)
         for idx, c in enumerate(encoded_line):
             minidx = max(0, idx - self.context)
             maxidx = min(maxlen, idx + self.context + 1)
@@ -64,64 +91,58 @@ class Corpus(object):
                 yield left + right, c
 
     def chars(self):
-        """
-        Returns:
-        --------
-        generator over characters in root
-        """
-        if isinstance(self.root, types.GeneratorType):
-            for line in self.root:
-                for char in line:
-                    yield char
-        elif isinstance(self.root, str):
-            if os.path.isdir(self.root):
-                for f in os.listdir(self.root):
-                    for line in lines_from_file(os.path.join(self.root, f)):
-                        for char in line:
-                            yield char
-            elif os.path.isfile(self.root):
-                for line in lines_from_file(self.root):
-                    for char in line:
-                        yield char
+        for line in lines_from_root(self.root):
+            for c in line:
+                yield c
 
-    def generate(self, indexer, **kwargs):
+    def words(self, tokenizer=None):
+        for line in lines_from_root(self.root):
+            if tokenizer is not None:
+                for word in tokenizer(line):
+                    yield word
+            else:
+                for word in line.split():
+                    yield word
+
+    def generate(self, mode='chars', tokenizer=None, indexer=None, **kwargs):
         """
         Returns:
         --------
         generator (list:int, int) over instances
         """
-        if isinstance(self.root, types.GeneratorType):
-            for line in self.root:
-                for c, l in self._encode_line(line, indexer, **kwargs):
-                    yield c, l
-        elif isinstance(self.root, str):
-            if os.path.isdir(self.root):
-                for f in os.listdir(self.root):
-                    for l in lines_from_file(os.path.join(self.root, f)):
-                        for c, l in self._encode_line(l, indexer, **kwargs):
-                            yield c, l
-            elif os.path.isfile(self.root):
-                for line in lines_from_file(self.root):
-                    for c, l in self._encode_line(line, indexer, **kwargs):
-                        yield c, l
+        for line in lines_from_root(self.root):
+            if mode == 'chars':
+                for c, t in self._pad_encode(line, indexer, **kwargs):
+                    yield c, t
+            elif mode == 'words':
+                words = tokenizer(line) if tokenizer else line.split()
+                for word, t in self._pad_encode(words, indexer, **kwargs):
+                    yield word, t
+            else:
+                raise ValueError("Unknown mode [%s]" % str(mode))
 
-    def generate_batches(self, indexer, batch_size=128, **kwargs):
+    def generate_batches(self, batch_size=128, **kwargs):
         """
+        Parameters:
+        -----------
+        batch_size: int
+        kwargs: optional arguments for Corpus.generate and Indexer.encode
+
         Returns:
         --------
         generator (list:list:int, list:int) over batches of instances
         """
-        contexts, labels, n = [], [], 0
-        gen = self.generate(indexer, **kwargs)
+        contexts, targets, n = [], [], 0
+        generator = self.generate(**kwargs)
         while True:
             try:
-                context, label = next(gen)
+                context, target = next(generator)
                 if n % batch_size == 0 and contexts:
-                    yield contexts, labels
-                    contexts, labels = [], []
+                    yield contexts, targets
+                    contexts, targets = [], []
                 else:
                     contexts.append(context)
-                    labels.append(label)
+                    targets.append(target)
                     n += 1
             except StopIteration:
                 break
