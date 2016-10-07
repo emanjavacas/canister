@@ -5,7 +5,10 @@ from __future__ import print_function
 
 import json
 
-from keras.callbacks import Callback
+try:
+    from keras.callbacks import Callback
+except ImportError:
+    raise ValueError("Keras doesn't seem to be installed in your OS")
 
 
 class DBCallback(Callback):

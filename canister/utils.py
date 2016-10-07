@@ -121,3 +121,8 @@ def update_in(d, path, f, *args):
             if path[0] not in d:
                 d[path[0]] = {}
             update_in(d[path[0]], path[1:], f, *args)
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()

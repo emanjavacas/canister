@@ -9,8 +9,8 @@ from getpass import getuser
 
 from tinydb import TinyDB, where
 
-from canister import utils
-from canister.git import GitInfo
+import utils
+from git import GitInfo
 
 
 logger = logging.getLogger(__name__)
@@ -162,9 +162,6 @@ class Experiment:
 
     def exists(self):
         return self.db.get(where("id") == self.id)
-
-    # def set_corpus(self, corpus):
-    #     self.db.insert({"corpus": corpus})
 
     def add_tag(self, tag):
         self.db.update(extend("tags", tag), where("id") == self.id)
@@ -347,9 +344,3 @@ class Experiment:
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-
-    model = Experiment.use("example.db", "random", exp_id=10).model("test")
-    with model.session({"a": 1}, ensure_unique=False) as session:
-        for i in range(10):
-            session.add_epoch(i, {'loss': i ** 2})
-        session.add_meta({"a": 2})
