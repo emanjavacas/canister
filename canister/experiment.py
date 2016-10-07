@@ -147,7 +147,7 @@ class Experiment:
                 log("Using remote db file [%s]" % path, level=self.level)
             except WrongPathException:
                 self.db = TinyDB(path)
-        except ImportError:
+        except:
             self.db = TinyDB(path)
             log("Using local file [%s]" % path, level=self.level)
 
