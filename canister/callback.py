@@ -1,14 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
-
 import json
 
-try:
+from .utils import silence
+
+with silence():
     from keras.callbacks import Callback
-except ImportError:
-    raise ValueError("Keras doesn't seem to be installed in your OS")
 
 
 class DBCallback(Callback):

@@ -9,8 +9,8 @@ from getpass import getuser
 
 from tinydb import TinyDB, where
 
-import utils
-from git import GitInfo
+from . import utils
+from .git import GitInfo
 
 
 logger = logging.getLogger(__name__)
@@ -139,6 +139,7 @@ class Experiment:
         username@host:/path/to/remote/file.
     """
     def __init__(self, path, exp_id=None, verbose=False):
+        assert path, "Path cannot be the empty string"
         self.level = logging.WARN if verbose else logging.NOTSET
         try:
             from sftp_storage import SFTPStorage, WrongPathException

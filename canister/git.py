@@ -2,7 +2,7 @@
 import logging
 from subprocess import check_output, CalledProcessError
 
-import utils
+from . import utils
 
 
 logger = logging.getLogger(__name__)

@@ -2,6 +2,22 @@
 import inspect
 import os
 from datetime import datetime
+from contextlib import contextmanager
+import sys
+
+
+@contextmanager
+def silence(stderr=True, stdout=True):
+    with open(os.devnull, "w") as devnull:
+        old_stderr = sys.stderr
+        old_stdout = sys.stdout
+        sys.stderr = devnull
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stderr = old_stderr
+            sys.stdout = old_stdout
 
 
 def get_dir(fname):
