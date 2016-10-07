@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block body %}
+
+<div class="container" style="padding: 15px; margin-top:75px;">
+  <div class="panel panel-default">
+    <!-- Default panel contents -->
+    <div class="panel-heading">{{architecture_name}}</div>
+    <div class="panel-body">
+      <div class="container-fluid">
+	<div class="row text-center">
+	  <div class="col-lg-5">
+	    <h5>Architecture</h5>
+	    {{architecture_params|safe}}
+	  </div>
+	  <div class="col-lg-7">
+	    <div class="container-fluid">
+	      <div class="row">
+		<div id="chart" style="margin-top: 35px;"></div>
+	      </div>
+	      <div class="row" style="margin-top: 35px;">
+		<h5>Experiment params</h5>
+		{{fitted_model.params|safe}}
+	      </div>
+	    </div>
+	  </div>
+	</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript" src="/static/js/d3.min.js"></script>
+<script type="text/javascript" src="/static/js/c3.min.js"></script>
+<script type="text/javascript" src="/static/js/chart.js"></script>
+<script type="text/javascript">
+  var epochs = {{fitted_model.epochs|safe}};
+  var modelId = {{model_id}}
+</script>
+{% endblock %}

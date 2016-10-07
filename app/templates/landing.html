@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block body %}
+
+<header>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-12">
+        <div class="intro-text">
+          <span class="name">Statistics</span>
+	  Showing {{n_projects}} projects with a total of {{n_experiments}} Experiments.<br>
+	  Last update was <span class="time-stamp">{{last_timestamp}}</span>
+          <!-- <hr class="star-light"> -->
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+{% macro render_tag(tag) -%}
+    {% if tag in session_tags %}
+    <a class="label label-success" href="#" data-action="remove" data-tag="{{tag}}">{{tag}}</a>
+    {% else %}
+    <a class="label label-default" href="#" data-action="add" data-tag="{{tag}}">{{tag}}</a>
+    {% endif %}
+{%- endmacro %}
+
+<div class="container">
+  <div class="text-right" style="padding-top: 15px">    
+    {% for tag in base_tags %}
+    {{ render_tag(tag) }}
+    {% endfor %}
+    <a style="margin-left: 10px;" href="#" data-toggle="tooltip"
+       title="filtering by tags in green"><i class="fa fa-question-circle"></i></a>
+  </div>
+  {% for arch in archs %}
+  <div class="container" style="padding: 15px;">
+    <div class="panel panel-default">
+      <!-- Default panel contents -->
+      <div class="panel-heading">
+	<div class="row">
+	  <div class="col-lg-4">{{arch.architecture_name}}</div>
+	  <div class="col-lg-8 text-right">
+	    Tags:
+	    {% for tag in arch.tags %}
+	    {{ render_tag(tag) }}
+	    {% endfor %}
+	  </div>
+	</div>
+      </div>
+      <div class="panel-body">
+	<div class="row ">
+	  <div class="col-md-5">
+	    <h5>Architecture</h5>
+	    {{arch.architecture_summary|safe}}
+	  </div>
+	  <div class="col-md-7">
+	    <table class="table table-bordered table-hover">
+	      <thead><h5>Experiments</h5></thead>
+	      <tbody>
+		{% for fitted_model in arch.fitted_models %}
+		<tr onclick="document.location='{{arch.architecture_name}}_{{fitted_model.idx}}_{{arch.corpus}}'">
+		  <th>{{fitted_model.timestamp}}</th>
+		  <!-- <td>{{fitted_model.status}}</td> -->
+		</tr>
+		{% endfor %}
+	    </table>
+	  </div>
+	</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

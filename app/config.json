@@ -1,0 +1,8 @@
+{
+    "app": {
+	"server-port": 5000
+    },
+    "db": {
+	"db-path": "/home/enrique/code/python/canister/test/test.db"
+    }
+}
