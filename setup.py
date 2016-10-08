@@ -11,6 +11,9 @@ setup(
     name='casket',
     packages=['casket'],
     version=version,
+    install_requires=[
+        'tinydb>=3.2.1'
+    ],
     description='Persistent storage for ML experiments',
     author='Enrique Manjavacas',
     author_email='enrique.manjavacas@gmail.com',
