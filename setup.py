@@ -10,18 +10,20 @@ try:
 except ImportError:
     from distutils.core import setup
 
+url = 'https://www.github.com/emanjavacas/casket/tarball/%s' % version
+
 setup(
     name='casket',
-    packages=['casket'],
     version=version,
     install_requires=[
         'tinydb>=3.2.1'
     ],
+    packages=['casket', 'casket.nlp_utils'],
+    url='https://www.github.com/emanjavacas/casket',
+    download_url=url,
     description='Persistent storage for ML experiments',
     author='Enrique Manjavacas',
     author_email='enrique.manjavacas@gmail.com',
-    url='https://www.github.com/emanjavacas/casket',
-    download_url='https://www.github.com/emanjavacas/casket/tarball/%s' % version,
     keywords=['experiments', 'Machine Learning'],
     classifiers=[]
 )
