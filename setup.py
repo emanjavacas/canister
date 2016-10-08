@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
     name='canister',
     packages=['canister'],
-    version='0.0.1a',
+    version='0.0.2a',
     description='Persistent storage for ML experiments',
     author='Enrique Manjavacas',
     author_email='enrique.manjavacas@gmail.com',
