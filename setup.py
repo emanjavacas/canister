@@ -5,7 +5,10 @@ try:
 except:
     raise RuntimeError("Couldn't find project tag/version")
 
-from distutils.core import setup
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
 setup(
     name='casket',
