@@ -41,3 +41,9 @@ class GitInfo:
         by git (OSError) or if file is not under git VCS (CalledProcessError)
         """
         return self.run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+
+    def get_tag(self):
+        """
+        Returns current active tag
+        """
+        return self.run(["git", "describe", "--tags", "--abbrev=0"])
