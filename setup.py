@@ -1,13 +1,13 @@
 from distutils.core import setup
 setup(
-    name='canister',
-    packages=['canister'],
+    name='casket',
+    packages=['casket'],
     version='0.0.2a',
     description='Persistent storage for ML experiments',
     author='Enrique Manjavacas',
     author_email='enrique.manjavacas@gmail.com',
-    url='https://www.github.com/emanjavacas/canister',
-    download_url='https://www.github.com/emanjavacas/canister/tarball/0.0.1a',
+    url='https://www.github.com/emanjavacas/casket',
+    download_url='https://www.github.com/emanjavacas/casket/tarball/0.0.1a',
     keywords=['experiments', 'Machine Learning'],
     classifiers=[]
 )

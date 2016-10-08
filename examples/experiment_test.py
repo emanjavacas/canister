@@ -8,7 +8,7 @@ from sklearn import svm
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import accuracy_score
 
-from canister.experiment import Experiment
+from casket.experiment import Experiment
 
 
 def generate_clusters(n_points=100, n_clusters=5, n_dim=3, noise=0.15):
