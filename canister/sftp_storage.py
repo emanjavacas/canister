@@ -4,10 +4,7 @@ import os
 import json
 from getpass import getpass
 
-try:
-    from paramiko import SSHClient, AutoAddPolicy
-except ImportError:
-    raise ValueError("`paramiko` doesn't seem to be installed in your OS")
+from paramiko import SSHClient, AutoAddPolicy
 from tinydb import Storage
 
 

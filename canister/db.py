@@ -12,6 +12,9 @@ class DB:
             except WrongPathException:
                 self.db = TinyDB(path)
         except ImportError:
+            from warnings import warn
+            warn("""`paramiko` doesn't seem to be installed in your OS.
+            Remote db access is disabled""", ImportWarning)
             self.db = TinyDB(path)
 
     def get_experiments(self):
