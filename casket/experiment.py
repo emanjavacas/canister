@@ -191,7 +191,7 @@ class Experiment:
     @classmethod
     def use(cls, path, exp_id=None, tags=(), **params):
         """
-        Only stores a new Experiment if none can be find with given parameters,
+        Only stores a new Experiment if none can be found with given parameters,
         otherwise instantiate the existing one with data from database.
         """
         exp = cls(path, exp_id=exp_id)
