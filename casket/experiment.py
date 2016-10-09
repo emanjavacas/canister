@@ -134,9 +134,9 @@ class Experiment:
 
     Parameters:
     -----------
-    path: str, path to the database file backend. A path in a remote
-        machine can be specified with syntax:
-        username@host:/path/to/remote/file.
+    path : str
+        Path to the database file backend. A path in a remote machine can
+        be specified with syntax: username@host:/path/to/remote/file.
     """
     def __init__(self, path, exp_id=None, verbose=False):
         assert path, "Path cannot be the empty string"
@@ -191,7 +191,7 @@ class Experiment:
     @classmethod
     def use(cls, path, exp_id=None, tags=(), **params):
         """
-        Only stores a new Experiment if none can be found with given parameters,
+        Stores a new Experiment if none can be found with given parameters,
         otherwise instantiate the existing one with data from database.
         """
         exp = cls(path, exp_id=exp_id)
@@ -203,7 +203,9 @@ class Experiment:
 
     def model_exists(self, model_id):
         """
-        Returns dict or None
+        Returns:
+        --------
+        dict or None
         """
         return self.db.get(
             (where("id") == self.id) &
@@ -244,22 +246,34 @@ class Experiment:
                     raise ExistingModelParamsException()
 
         def _add_result(self, result, params):
+            """
+            Add session result (new)
+            """
             meta = self._result_meta()
             result = {"params": params, "meta": meta, "result": result}
             path = ["models", self.which_model, "sessions"]
             self.e.db.update(append_in(path, result), self.cond)
 
-        def _add_session_result(self, result):
+        def _add_session_result(self, result, index_by=None):
             """
             Adds (partial) result to session currently running. Session is
             identifed based on session `params`. In case a model is run with
             the same params in a second session, results are added to the
             chronologically last session (which means that we relay on the fact
             that `update_in` checks lists in reverse, see `update_in`)
+
+            Parameters:
+            -----------
+            result : (serializable-)dict
+
+            index_by : serializable, optional
+                Key to store result by.
+                `result` is appended to session.result.index_by if given,
+                or to session.result otherwise.
             """
-            which_result = params_pred(self._session_params)
-            path = ["models", self.which_model, "sessions",
-                    which_result, "result", "epochs"]
+            which_session = params_pred(self._session_params)
+            path = ["models", self.which_model, "sessions", which_session,
+                    "result"] + ([index_by] or [])
             self.e.db.update(append_in(path, result), self.cond)
 
         def _start_session(self, params):
@@ -275,7 +289,7 @@ class Experiment:
             return self.e.model_exists(self.model_id)
 
         @contextlib.contextmanager
-        def session(self, params, ensure_unique=True):  # to try: store on exit
+        def session(self, params, ensure_unique=True):  # TODO: store on exit
             """
             Context manager for cases in which we want to add several results
             to the same experiment run. Current session is identified based on
@@ -320,18 +334,21 @@ class Experiment:
                 raise ValueError("add_meta input must be dict")
             if not self.exists():
                 self._add_default_model()
-            which_result = params_pred(self._session_params)
-            path = ["models", self.which_model,
-                    "sessions", which_result, "meta"]
+            which_session = params_pred(self._session_params)
+            path = ["models", self.which_model, "sessions", which_session,
+                    "meta"]
             self.e.db.update(assign_in(path, d), self.cond)
 
-        def add_result(self, result, params=None):
+        def add_result(self, result, params=None, index_by=None):
+            """
+            appends result to models.$.sessions.$.result
+            """
             if not params and not self._session_params:
                 raise ValueError("Experiment params missing")
             if not self._session_params:
                 self._add_result(result, params)
             else:
-                self._add_session_result(result)
+                self._add_session_result(result, index_by=index_by)
 
         def add_epoch(self, epoch_num, result, timestamp=True):
             if not self._session_params:
@@ -339,7 +356,7 @@ class Experiment:
             result.update({"epoch_num": epoch_num})
             if timestamp:
                 result.update({"timestamp": str(datetime.now())})
-            self._add_session_result(result)
+            self._add_session_result(result, index_by="epochs")
 
 
 if __name__ == '__main__':
