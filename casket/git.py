@@ -21,12 +21,13 @@ class GitInfo:
 
     def run(self, cmd):
         try:
-            output = check_output(cmd, cwd=self.dirname)
-            return output.strip().decode('utf-8')
+            with utils.silence():
+                output = check_output(cmd, cwd=self.dirname)
+                return output.strip().decode('utf-8')
         except OSError:
             log("Git doesn't seem to be installed in your system")
         except CalledProcessError:
-            log("Not a git repository")
+            log("Not a git repository. Omitting git info...")
 
     def get_commit(self):
         """
