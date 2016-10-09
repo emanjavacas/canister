@@ -104,7 +104,7 @@ Basic functionality is provided by the `casket.Experiment` class.
 
 - Simple SVM setup with `sklearn`
 
-```
+``` python
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy
 clf = SVC()
@@ -123,7 +123,7 @@ model.add_result({'accuracy': accuracy(y_true, y_pred),
 
 - Grid search classification problem with `sklearn`
 
-```
+``` python
 grid_params = [
     {'kernel': ['rbf'], 'gamma': [1e-3, 1e-4], 'C': [1, 10, 100, 1000]},
     {'kernel': ['linear'], 'C': [1, 10, 100, 1000]}
@@ -163,7 +163,7 @@ with model.session({'grid_params': grid_params}) as session:
 
 - Neural network example
 
-```
+``` python
 params = {"input_dim": 1000, "hidden_dim": 500, "optimizer": "rmsprop"}
 model = make_model(model_params)
 
