@@ -25,5 +25,6 @@ setup(
     author='Enrique Manjavacas',
     author_email='enrique.manjavacas@gmail.com',
     keywords=['experiments', 'Machine Learning'],
+    license='MIT',
     classifiers=[]
 )
