@@ -66,6 +66,7 @@ class Corpus(object):
         -----------
         line: generator/list, a seq of units to be padded/encoded
         indexer: Indexer, a fitted indexer
+        concat: bool, whether to concat left & right contexts or not
         kwargs: optional arguments for Indexer.encode
 
         Returns:
