@@ -60,7 +60,7 @@ class Corpus(object):
             raise ValueError('Invalid side value [%s]' % side)
         self.side = side
 
-    def _pad_encode(self, line, indexer, **kwargs):
+    def _pad_encode(self, line, indexer, concat=True, **kwargs):
         """
         Parameters:
         -----------
@@ -88,7 +88,10 @@ class Corpus(object):
             elif self.side == 'right':
                 yield right, c
             else:
-                yield left + right, c
+                if concat:
+                    yield left + right, c
+                else:
+                    yield (left, right), c
 
     def chars(self):
         for line in lines_from_root(self.root):
