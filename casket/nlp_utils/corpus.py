@@ -18,9 +18,9 @@ def lines_from_root(root):
             for f in os.listdir(root):
                 for l in lines_from_file(os.path.join(root, f)):
                     yield l
-    elif os.path.isfile(root):
-        for line in lines_from_file(root):
-            yield line
+        elif os.path.isfile(root):
+            for line in lines_from_file(root):
+                yield line
     else:
         raise ValueError("Unknown root type [%s]" % type(root))
 
