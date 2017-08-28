@@ -1,6 +1,6 @@
-db-data/
 *~
 *pyc
-robofly
 #*
 *.idea/
+*.json
+.gitignore
