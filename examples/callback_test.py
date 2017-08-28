@@ -8,7 +8,7 @@ from keras.models import Sequential
 from keras.layers.core import Activation, Dropout, Dense
 from keras.layers.recurrent import GRU
 
-from canister.callback import DBCallback
+from casket.callback import DBCallback
 
 
 def load_data(data, steps=4):

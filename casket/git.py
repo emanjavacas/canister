@@ -2,7 +2,7 @@
 import logging
 from subprocess import check_output, CalledProcessError
 
-from canister import utils
+from . import utils
 
 
 logger = logging.getLogger(__name__)
@@ -21,12 +21,13 @@ class GitInfo:
 
     def run(self, cmd):
         try:
-            output = check_output(cmd, cwd=self.dirname)
-            return output.strip().decode('utf-8')
+            with utils.silence():
+                output = check_output(cmd, cwd=self.dirname)
+                return output.strip().decode('utf-8')
         except OSError:
             log("Git doesn't seem to be installed in your system")
         except CalledProcessError:
-            log("Not a git repository")
+            log("Not a git repository. Omitting git info...")
 
     def get_commit(self):
         """
@@ -41,3 +42,9 @@ class GitInfo:
         by git (OSError) or if file is not under git VCS (CalledProcessError)
         """
         return self.run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+
+    def get_tag(self):
+        """
+        Returns current active tag
+        """
+        return self.run(["git", "describe", "--tags", "--abbrev=0"])
